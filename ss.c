@@ -149,7 +149,9 @@ char* sendToNextSS(struct chainLink *cLink, struct chainData *cData)
 
 char* getFile(struct chainData *chaindata)
 {
-	// TODO: (URL HANDLER) Code to retrieve the document from the URL and returns a char* with the contents of the document.
+	/* TODO: (URL HANDLER) Code to retrieve the document from the URL and returns a char* with the contents of the document.
+	 * This function is just a suggestion.  Feel free to implement however you see fit.
+	 */
 	return "";
 }
 
@@ -368,7 +370,11 @@ void startServer(char* cPortNumber)
 						}
 						else if (chaindata->numLinks == 0)
 						{ // Last SS, time to retrieve the document
-							// TODO: (URL HANDLER) CALL WGET HERE
+							/* TODO: (URL HANDLER) EXECUTE SYSTEM() TO ISSUE WGET.
+							 * The commented line of code below is a suggestion of how to implement the URL handler.
+							 * Feel free to change it as long as there is a populated returnMsg variable after the
+							 * file is retrieved.
+							 */
 							// strcpy(returnMsg, getFile(&chaindata));
 
 							// XXX: TEST CODE
@@ -384,7 +390,10 @@ void startServer(char* cPortNumber)
 						}
 						else
 						{
-							// TODO: (CLEANUP) Message has returned, do necessary cleanup to cover tracks
+							/* TODO: (CLEANUP) Message has returned, do necessary cleanup to cover tracks.
+							 * Needs to be aware of the (URL HANDLER) code because that is where a local copy is stored.  Coordinate
+							 * to clean up those files.
+							 */
 							printf("%s - Sent return message back\n", ssId);
 							FD_CLR(i, &master); // remove from master set
 						}
