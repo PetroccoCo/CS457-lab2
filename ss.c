@@ -142,10 +142,10 @@ void streamToURLAndChainData(char *fileStream, char *urlValue, struct chainData 
 
     token = strtok(fileStream, "\n");
     strcpy(urlValue, token);
-
+printf("URLL - %s\n", urlValue);
     token = strtok(NULL, "\n");
     cd->numLinks = atoi(token);
-
+    printf("numlinks - %d\n", cd->numLinks);
     for (i = 0; i < cd->numLinks; i++)
     {
         token = strtok(NULL, "\n");
@@ -341,8 +341,7 @@ void startServer(char* cPortNumber)
     int portNumber = atoi(cPortNumber);
     if (portNumber == 17)
     {
-        chaindata = new
-        chainData();
+        chaindata = new chainData();
         chaindata->numLinks = 3;
         chainLink link1;
         strcpy(link1.SSaddr, "ubuntu");
@@ -369,6 +368,7 @@ void startServer(char* cPortNumber)
         { // Need to forward to other SS's
             // printf("The URL to forward to is %s with port %d\n\n", ssAddr, ssPort);
 
+            strcpy (urlValue,"www.google.com");
             portNumber = 17;
 
             // Forward this to next SS and get return msg
@@ -444,14 +444,16 @@ void startServer(char* cPortNumber)
                             printf("MARK02d\n");
                             fdmax = newfd;
                         }
-                        printf("New connection from %s on socket %d\n",
-                                inet_ntop(remoteaddr.ss_family, get_in_addr((struct sockaddr*) &remoteaddr), remoteIP,
-                                        INET6_ADDRSTRLEN), newfd);
+//                        printf("New connection from %s on socket %d\n",
+//                                inet_ntop(remoteaddr.ss_family, get_in_addr((struct sockaddr*) &remoteaddr), remoteIP,
+//                                        INET6_ADDRSTRLEN), newfd);
                     }
                 }
                 else // Data has returned on the socket meant for data transfer
                 {
                     printf("MARK0");
+                    int vv;
+                    vv = 5;
                     // handle data from a client
                     if ((nbytes = recv(i, buf, recvMsgSize, 0)) <= 0)
                     { // ERROR STATE
@@ -472,10 +474,11 @@ void startServer(char* cPortNumber)
                     else
                     { // Received data properly - HANDLE DATA HERE
                       // print out the data to the server console.
-                        printf("MARK1");
+                        printf("MARK1 - %s\n", buf);
+                        chaindata = new chainData();
                         streamToURLAndChainData(buf, urlValue, chaindata);
-                        chaindata = (struct chainData *) buf;
 
+                        dbgPrintChainData(chaindata);
                         printf("MARK2");
                         // return chaindata msg data to host byte order
 //                        chaindata->numLinks = ntohl(chaindata->numLinks) - 1;
@@ -487,12 +490,12 @@ void startServer(char* cPortNumber)
 
                         printf("%s - NumLinks remaining in chaindata is: %u\n", ssId, chaindata->numLinks);
 
-                        if (chaindata->numLinks >= 1)
+                        if (chaindata->numLinks > 1)
                         { // Need to forward to other SS's
                             // Forward this to next SS and get return msg
                             strcpy(returnMsg, sendToNextSS(chaindata, urlValue));
                         }
-                        else if (chaindata->numLinks == 0)
+                        else if (chaindata->numLinks == 1)
                         { // Last SS, time to retrieve the document
                             /* TODO: (URL HANDLER) EXECUTE SYSTEM() TO ISSUE WGET.
                              * The commented line of code below is a suggestion of how to implement the URL handler.
