@@ -83,12 +83,12 @@ void removeMeFromChainlinks(struct chainData *cData)
              * replace the element at this index with the last element.
              */
             found = 1;
-            cData->numLinks = cData->numLinks - 1;
             if (i < cData->numLinks - 1)
             {
                 strcpy(cData->links[i].SSaddr, cData->links[cData->numLinks - 1].SSaddr);
                 cData->links[i].SSport = cData->links[cData->numLinks - 1].SSport;
             }
+            cData->numLinks = cData->numLinks - 1;
         }
     }
 

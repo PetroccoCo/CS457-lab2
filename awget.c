@@ -294,8 +294,8 @@ void sendURLandChainData(struct chainData *cd, char *urlValue, char *returnMsg)
     free(buf);
 
     /* prepare descriptor set */
-//    FD_ZERO(&read_fds);
-//    FD_SET(sock, &read_fds);
+    FD_ZERO(&read_fds);
+    FD_SET(sock, &read_fds);
 
     // wait for response
     tv.tv_sec = 3;
@@ -315,8 +315,11 @@ void sendURLandChainData(struct chainData *cd, char *urlValue, char *returnMsg)
     {
         if (FD_ISSET(sock, &read_fds))
         {
-            recv(sock, returnMsg, sizeof returnMsg, 0);
-            close(sock);
+            char buf[MAXFILESIZE];
+            recv(sock, buf, MAXFILESIZE, 0);
+            strcpy(returnMsg, buf);
+            printf("FINAL STRING IS %s\n", returnMsg);
+//            close(sock);
         }
     }
 
