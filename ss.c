@@ -103,14 +103,10 @@ void removeMeFromChainlinks(struct chainData *cData)
  */
 void chainDataAndURLToString(struct chainData *cd, char *urlValue, char **cdString)
 {
-    dbgPrintChainData(cd);
-    printf("url is %s\n", urlValue);
-
     int i;
     int thisSize = 0;
     char thisLine[255];
 
-    printf("MARKa1\n");
     thisSize = 6 * sizeof(char) + strlen(urlValue) * sizeof(char);
     *cdString = (char*) malloc(thisSize);
     strcpy(*cdString, urlValue);
@@ -118,7 +114,6 @@ void chainDataAndURLToString(struct chainData *cd, char *urlValue, char **cdStri
     sprintf(thisLine, "%d\n", cd->numLinks);
     strcat(*cdString, thisLine);
 
-    printf("MARKb1\n");
     for (i = 0; i < cd->numLinks; i++)
     {
         thisSize += 7 * sizeof(char)
@@ -142,10 +137,8 @@ void streamToURLAndChainData(char *fileStream, char *urlValue, struct chainData 
 
     token = strtok(fileStream, "\n");
     strcpy(urlValue, token);
-printf("URLL - %s\n", urlValue);
     token = strtok(NULL, "\n");
     cd->numLinks = atoi(token);
-    printf("numlinks - %d\n", cd->numLinks);
     for (i = 0; i < cd->numLinks; i++)
     {
         token = strtok(NULL, "\n");
@@ -174,14 +167,12 @@ char* sendToNextSS(struct chainData *cData, char *urlValue)
     char *ssAddr;
     int linkNumChosen;
 
-    printf("MARK3");
     /* remove myself from list of chaindata's array of chainlinks */
     removeMeFromChainlinks(cData);
 
     /* get random SS to send to */
     getRandomSS(cData, &ssAddr, &ssPort, &linkNumChosen);
 
-    printf("MARK4");
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
@@ -193,7 +184,6 @@ char* sendToNextSS(struct chainData *cData, char *urlValue)
         exit(0);
     }
 
-    printf("MARK5");
     // loop through all the results and connect to the first we can
     for (p = servinfo; p != NULL; p = p->ai_next)
     {
@@ -223,21 +213,13 @@ char* sendToNextSS(struct chainData *cData, char *urlValue)
     printf("client: connecting to %s\n", s);
 
     freeaddrinfo(servinfo); // all done with this structure
-    printf("MARK6\n");
 
-    // prepare chaindata msg before sending - convert to network byte order
-//    for (int i = 0; i < (cData->numLinks - 1); i++)
-//    {
-//        cData->links[i].SSport = htonl(cData->links[i].SSport);
-//    }
-//    int oldNumLinks = cData->numLinks;
-//    cData->numLinks = htonl(oldNumLinks);
-
-    printf("MARK7\n");
     // convert chaindata and url to char array that we can send
     chainDataAndURLToString(cData, urlValue, &buf);
 
-    printf("MARK8\n");
+    fprintf(stdout, "URL and Chainlist are:\n*********\n%s\n*********\n", buf);
+    fprintf(stdout, "The next SS is %s, %d\nWaiting...\n", ssAddr, ssPort);
+
     // send message
     if (send(sockfd, buf, strlen(buf), 0) == -1)
     {
@@ -273,6 +255,7 @@ char* sendToNextSS(struct chainData *cData, char *urlValue)
         {
             recv(sockfd, returnMsg, sizeof returnMsg, 0);
             close(sockfd);
+            printf("Fetching %s\nRelay successfully completed!\n", urlValue);
         }
     }
 
@@ -335,54 +318,6 @@ void startServer(char* cPortNumber)
         break; // successful socket creation
     }
 
-    // XXX: Test Code
-    // XXX: Test Code
-    // XXX: Test Code
-    int portNumber = atoi(cPortNumber);
-    if (portNumber == 17)
-    {
-        chaindata = new chainData();
-        chaindata->numLinks = 3;
-        chainLink link1;
-        strcpy(link1.SSaddr, "ubuntu");
-        link1.SSport = 30031;
-        chainLink link2;
-        strcpy(link2.SSaddr, "ubuntu");
-        link2.SSport = 30032;
-        chainLink link3;
-        strcpy(link3.SSaddr, "ubuntu");
-        link3.SSport = 17;
-        chainLink link4;
-        strcpy(link4.SSaddr, "127.0.0.1");
-        link4.SSport = 30033;
-        chaindata->links[0] = link1;
-        chaindata->links[1] = link2;
-        chaindata->links[2] = link3;
-        chaindata->links[3] = link4;
-
-        char ssAddr[128] = "";
-        strcpy(ssAddr, chaindata->links[chaindata->numLinks - 1].SSaddr);
-        int ssPort = chaindata->links[chaindata->numLinks - 1].SSport;
-
-        if (chaindata->numLinks >= 1)
-        { // Need to forward to other SS's
-            // printf("The URL to forward to is %s with port %d\n\n", ssAddr, ssPort);
-
-            strcpy (urlValue,"www.google.com");
-            portNumber = 17;
-
-            // Forward this to next SS and get return msg
-            strcpy(returnMsg, sendToNextSS(chaindata, urlValue));
-
-            printf("%s - File retrieved successfully, contents: %s\n\n", ssId, returnMsg);
-
-            exit(1);
-        }
-    }
-    // XXX: END Test Code
-    // XXX: END Test Code
-    // XXX: END Test Code
-
     if (p == NULL) // if we got here, it means we didn't get bound
     {
         fprintf(stderr, "Server Error: Failed to bind to socket for listener\n");
@@ -418,17 +353,14 @@ void startServer(char* cPortNumber)
         // run through the existing connections looking for data to read
         for (int i = 0; i <= fdmax; i++)
         {
-            printf("MARK01\n");
             if (FD_ISSET(i, &read_fds))
             { // we got one!!
-                printf("MARK02\n");
                 if (i == listener)
                 {
                     // handle new connections
                     addrlen = sizeof remoteaddr;
                     newfd = accept(listener, (struct sockaddr *) &remoteaddr, &addrlen);
 
-                    printf("MARK02a\n");
                     if (newfd == -1)
                     {
                         perror("Server Error: While creating new socket for accept()");
@@ -436,22 +368,18 @@ void startServer(char* cPortNumber)
                     }
                     else
                     {
-                        printf("MARK02b\n");
                         FD_SET(newfd, &master); // add to master set
-                        printf("MARK02c\n");
                         if (newfd > fdmax)
                         { // keep track of the max
-                            printf("MARK02d\n");
                             fdmax = newfd;
                         }
-//                        printf("New connection from %s on socket %d\n",
-//                                inet_ntop(remoteaddr.ss_family, get_in_addr((struct sockaddr*) &remoteaddr), remoteIP,
-//                                        INET6_ADDRSTRLEN), newfd);
+                        printf("New connection from %s on socket %d\n",
+                                inet_ntop(remoteaddr.ss_family, get_in_addr((struct sockaddr*) &remoteaddr), remoteIP,
+                                        INET6_ADDRSTRLEN), newfd);
                     }
                 }
                 else // Data has returned on the socket meant for data transfer
                 {
-                    printf("MARK0");
                     int vv;
                     vv = 5;
                     // handle data from a client
@@ -474,29 +402,20 @@ void startServer(char* cPortNumber)
                     else
                     { // Received data properly - HANDLE DATA HERE
                       // print out the data to the server console.
-                        printf("MARK1 - %s\n", buf);
                         chaindata = new chainData();
                         streamToURLAndChainData(buf, urlValue, chaindata);
-
-                        dbgPrintChainData(chaindata);
-                        printf("MARK2");
-                        // return chaindata msg data to host byte order
-//                        chaindata->numLinks = ntohl(chaindata->numLinks) - 1;
-//                        for (int i = 0; i < chaindata->numLinks; i++)
-//                        {
-//                            chaindata->links[i].SSport = ntohl(
-//                                    chaindata->links[i].SSport);
-//                        }
 
                         printf("%s - NumLinks remaining in chaindata is: %u\n", ssId, chaindata->numLinks);
 
                         if (chaindata->numLinks > 1)
                         { // Need to forward to other SS's
                             // Forward this to next SS and get return msg
+                            fprintf(stdout, "Receiving request\n");
                             strcpy(returnMsg, sendToNextSS(chaindata, urlValue));
                         }
                         else if (chaindata->numLinks == 1)
                         { // Last SS, time to retrieve the document
+                            fprintf(stdout, "This is the last SS, wget %s\n", urlValue);
                             /* TODO: (URL HANDLER) EXECUTE SYSTEM() TO ISSUE WGET.
                              * The commented line of code below is a suggestion of how to implement the URL handler.
                              * Feel free to change it as long as there is a populated returnMsg variable after the
@@ -504,8 +423,8 @@ void startServer(char* cPortNumber)
                              */
                             // strcpy(returnMsg, getFile(&chaindata));
                             // XXX: TEST CODE
-                            printf("%s - Retrieved file successfully!! \n\n", ssId);
-                            strcpy(returnMsg, "Yadda Yadda Yadda Yadda Yadda Yadda");
+                            strcpy(returnMsg, "TEST TEST TEST TEST TEST TEST");
+                            printf("Relay file...\nSuccessful!\n");
                         }
 
                         // successful message retrieval.  return message to sender
@@ -520,7 +439,6 @@ void startServer(char* cPortNumber)
                              * Needs to be aware of the (URL HANDLER) code because that is where a local copy is stored.  Coordinate
                              * to clean up those files.
                              */
-                            printf("%s - Sent return message back\n", ssId);
                             FD_CLR(i, &master); // remove from master set
                         }
                     }

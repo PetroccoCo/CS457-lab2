@@ -129,15 +129,12 @@ int sanityCheckFile(char *fname)
             strcpy(SSaddr, token);
             token = strtok(NULL, ",");
             strcpy(SSport, token);
-            printf("DBG strlen is %d\n", strlen(SSport));
             for (j = 0; j < strlen(SSport) - 1; j++)
             {
-                printf("Digits %s%d\n", SSport, j);
                 /* this check is needed because text files in windows have \n\r instead of just \n */
                 if ((SSport[j] != '\n') && (SSport[j] != '\r')
                         && (!isdigit(SSport[j])))
                 {
-                    printf("Digit %c\n", SSport[j]);
                     return (2 + i);
                 }
             }
@@ -281,7 +278,6 @@ void sendURLandChainData(struct chainData *cd, char *urlValue, char *returnMsg)
 
     /* Send the struct to the server */
     chainDataAndURLToString(cd, urlValue, &buf);
-    printf("<debug> cd+url string: %s\n", buf);
 
     if (send(sock, buf, strlen(buf), 0) != strlen(buf))
         DieWithError("send() sent a different number of bytes than expected");
@@ -290,7 +286,9 @@ void sendURLandChainData(struct chainData *cd, char *urlValue, char *returnMsg)
     fprintf(stdout, "send buffer size = %d\n", strlen(buf));
     fprintf(stdout, "Sent chainfile contents to server %s:%d via TCP\n",
             serverName, portNumber);
-    fprintf(stdout, "(sent)*****\n%s\n*****\n", buf);
+    fprintf(stdout, "URL and Chainlist are:\n*********\n%s\n*********\n", buf);
+    fprintf(stdout, "Next SS is %s, %d\n", SSaddr, SSport);
+    fprintf(stdout, "Waiting for file...\n..\n");
     free(buf);
 
     /* prepare descriptor set */
@@ -315,11 +313,14 @@ void sendURLandChainData(struct chainData *cd, char *urlValue, char *returnMsg)
     {
         if (FD_ISSET(sock, &read_fds))
         {
+            /* TODO: Need to add Receive File code.  Currently it just reads a char array back and stores that in
+             * the returnMsg variable. */
+
             char buf[MAXFILESIZE];
             recv(sock, buf, MAXFILESIZE, 0);
             strcpy(returnMsg, buf);
-            printf("FINAL STRING IS %s\n", returnMsg);
-//            close(sock);
+            fprintf(stdout, "Received file successfully.\nResult file: <FILENAME>\n");
+            fprintf(stdout, "Send was a Success - exiting.  Goodbye!\n");
         }
     }
 
@@ -327,7 +328,6 @@ void sendURLandChainData(struct chainData *cd, char *urlValue, char *returnMsg)
     /* so close things up */
     if (close(sock) != 0)
         DieWithError("close() failed");
-    fprintf(stderr, "Send was a Success - exiting.\n");
     exit(0);
 }
 
@@ -411,8 +411,8 @@ int main(int argc, char **argv)
     }
     fclose(fd);
 
-    dbgPrintChainData(&cd);
-    printf("\n");
+//    dbgPrintChainData(&cd);
+//    printf("\n");
 
     // test random SS retrieval
 //    for (i = 0; i < 10; i++)
