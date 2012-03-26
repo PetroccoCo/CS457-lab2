@@ -1,9 +1,11 @@
 /*
  CS457DL Project 2
  Steve Watts
+ Jason Kim
+ Pete Winterscheidt
  */
 
-/* This is the awget program portion of the CS457DL Lab/Programming Assignnment 1 */
+/* This is the awget program portion of the CS457DL Lab/Programming Assignnment 2 */
 
 #include <ctype.h>
 #include <stdio.h>
