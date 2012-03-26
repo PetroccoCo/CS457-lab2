@@ -2,9 +2,10 @@
  CS457DL Project 2
  Steve Watts
  Jason Kim
+ Pete Winterscheidt
  */
 
-/* This is the ss program portion of the CS457DL Lab/Programming Assignnment 1 */
+/* This is the ss program portion of the CS457DL Lab/Programming Assignnment 2 */
 
 #include <ctype.h>
 #include <stdio.h>
@@ -45,6 +46,12 @@ void *get_in_addr(struct sockaddr *sa)
 }
 
 int goGetFile (char *url) {
+
+// tested with url = "linux.about.com/index.html".....
+// gets the file and puts it in current folder ....
+//
+// the "no-check-cert.." stuff is an attempt to wget files from
+// www.cs.colostate.edu (it almost works)
 
   char cmdLine[255] = "";
   strcat(cmdLine,"wget ");
