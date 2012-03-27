@@ -105,7 +105,9 @@ int fileToString(char *fileName, char *s, int *fileSize)
 
 int goGetFile(char *url)
 {
-
+// tested this using linux.about.com/index.html and it works.
+// the -no-check.. stuff is an attempt to get around certificate issues
+// when getting files from www.cs.colostate.edu (it doesn't quite work...)
   char cmdLine[255] = "";
   strcat(cmdLine,"wget ");
   strcat(cmdLine,url);
@@ -304,6 +306,7 @@ char* sendToNextSS(struct chainData *cData, char *urlValue, int *fileSize)
     {
         printf("Sent Chain Data with %u links to %s:%s via TCP\n", cData->numLinks, ssAddr, portNo);
     }
+    free(buf);
 
     // prepare descriptor set
     FD_ZERO(&read_fds);
@@ -345,7 +348,7 @@ char* sendToNextSS(struct chainData *cData, char *urlValue, int *fileSize)
             while (bytesRecv < sizeBuffer)
             {
                 printf("Bytes begin recv: %d\n\n", bytesRecv);
-                bytesRecv = bytesRecv + recv(sockfd, buf, (sizeBuffer - bytesRecv), 0);
+                bytesRecv = bytesRecv + recv(sockfd, buffer, (sizeBuffer - bytesRecv), 0);
                 printf("Bytes recv: %d\n\n", bytesRecv);
                 strcat(totalMsg, buffer);
                 printf("Cat done");
