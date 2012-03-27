@@ -24,15 +24,85 @@
 #include <signal.h>
 #include <time.h>
 #include <netdb.h>
+#include <iostream>
+#include <fstream>
 #include "awget.h"
 
 #define MAXPORTNUMBER 65535
-#define MAXFILESIZE 50000 // max number of bytes we can get retrieve from URL
+#define MAXFILESIZE 550544 // max number of bytes we can get retrieve from URL
+#define MAXTIMEOUT 10 // max num seconds to wait before timeout
+
+char urlValue[255];
+
+using namespace std;
 
 int printUsage()
 {
     fprintf(stdout, "Usage: awget <URL> [-c chainfile]\n");
     return 0;
+}
+
+int stringToFile(char *s, char *fileName)
+{
+    FILE *fd = fopen(fileName, "w");
+    if (fd == NULL)
+    {
+        DieWithError("File Open error.");
+    }
+    int i = 0;
+    while (s[i] != '\0')
+    {
+        fputc(s[i++], fd);
+    }
+    fclose(fd);
+
+    ofstream outfile ("newAwgetTest.pdf",ofstream::binary);
+    // write to outfile
+    outfile.write (s, 148544);
+    outfile.close();
+}
+
+int fileToString(char *fileName, char *s) {
+    FILE *fd = fopen(fileName, "r");
+    if (fd == NULL) {
+        DieWithError("File Open error.");
+    }
+    int i = 0;
+    do {
+      s[i] = fgetc(fd);
+    } while (s[i++] != EOF);
+    s[--i] = '\0';
+    fclose(fd);
+}
+
+/***
+ * Remove this stepping stone's entry from list of chainlinks
+ */
+void removeEntryFromChainlinks(struct chainData *cData,char *hostName, int portNumber)
+{
+    int found = 0;
+    int i = 0;
+    for (i = 0; i < cData->numLinks; i++)
+    {
+        if ((strcmp(cData->links[i].SSaddr, hostName) == 0) && (cData->links[i].SSport == portNumber))
+        {
+            /* found!  remove this entry.  if this is not the last element in the array,
+             * replace the element at this index with the last element.
+             */
+            found = 1;
+            if (i < cData->numLinks - 1)
+            {
+                strcpy(cData->links[i].SSaddr, cData->links[cData->numLinks - 1].SSaddr);
+                cData->links[i].SSport = cData->links[cData->numLinks - 1].SSport;
+            }
+            cData->numLinks = cData->numLinks - 1;
+        }
+    }
+
+    if (!found)
+    {
+        DieWithError ("Error while removing this hostname from links in chaindata");
+    }
 }
 
 /***
@@ -198,7 +268,7 @@ int readChainFile(FILE *fd, struct chainData *cd)
     return 0;
 }
 
-void sendURLandChainData(struct chainData *cd, char *urlValue, char *returnMsg)
+void sendURLandChainData(struct chainData *cd, char *urlValue)
 {
     int sock; /* Socket descriptor */
     struct sockaddr_in myServAddr; /* server address */
@@ -212,6 +282,7 @@ void sendURLandChainData(struct chainData *cd, char *urlValue, char *returnMsg)
     int SSport, portNumber;
     int i;
     char *buf;
+    char returnMsg[MAXFILESIZE+1];
     int chosenLinkNum;
     int ipAddressEntered = 1; /* flag to indicate an IP address was entered as -s arg */
     struct chainData cdSend;
@@ -239,7 +310,7 @@ void sendURLandChainData(struct chainData *cd, char *urlValue, char *returnMsg)
         DieWithError("socket() failed");
 
     /* establish 3 seconds as the timeout value */
-    tv.tv_sec = 3;
+    tv.tv_sec = MAXTIMEOUT;
     tv.tv_usec = 0;
     if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *) &tv, sizeof tv))
         DieWithError("setsockopt() failed");
@@ -298,7 +369,7 @@ void sendURLandChainData(struct chainData *cd, char *urlValue, char *returnMsg)
     FD_SET(sock, &read_fds);
 
     // wait for response
-    tv.tv_sec = 3;
+    tv.tv_sec = MAXTIMEOUT;
     tv.tv_usec = 0;
     rv = select(sock+1, &read_fds, NULL, NULL, &tv);
     if (rv == -1) // ERROR
@@ -318,25 +389,50 @@ void sendURLandChainData(struct chainData *cd, char *urlValue, char *returnMsg)
             /* TODO: Need to add Receive File code.  Currently it just reads a char array back and stores that in
              * the returnMsg variable. */
 
-            char buf[MAXFILESIZE];
-            recv(sock, buf, MAXFILESIZE, 0);
-            strcpy(returnMsg, buf);
-            fprintf(stdout, "Received file successfully.\nResult file: <FILENAME>\n");
+            int bytesRecv = 0;
+            char buffer[MAXFILESIZE];
+            int sizeBuffer = 0;
+            // receive the header - file size
+            if (recv(sock, &sizeBuffer, 4, 0) == -1) {
+                perror("Error in recv()\n");
+                exit(7); }
+            sizeBuffer = ntohl(sizeBuffer);
+            printf("Size Buffer: %d\n\n", sizeBuffer);
+
+
+
+            while (bytesRecv < sizeBuffer)
+            {
+                bytesRecv = bytesRecv + recv(sock, buffer, (sizeBuffer - bytesRecv), 0);
+                strcat(returnMsg, buffer);
+            }
+            printf("Received num bytes - %d\n\n", bytesRecv);
+            close(sock);
+
+            char *localFileName;
+            localFileName = basename(urlValue);
+            //            stringToFile(returnMsg, localFileName);
+            stringToFile(returnMsg, "FinalOutput.pdf");
+
+
+
+//            char buf[MAXFILESIZE];
+//            recv(sock, buf, MAXFILESIZE, 0);
+//            strcpy(returnMsg, buf);
+//            printf("BUF: %s\n\n", buf);
+//            printf("MSG: %s\n\n", returnMsg);
+
+            fprintf(stdout, "Received file successfully.\nResult file: %s\n", localFileName);
             fprintf(stdout, "Send was a Success - exiting.  Goodbye!\n");
         }
     }
 
-    /* sent the bytes to server */
-    /* so close things up */
-    if (close(sock) != 0)
-        DieWithError("close() failed");
     exit(0);
 }
 
 int main(int argc, char **argv)
 {
     struct chainData cd;
-    char urlValue[255] = "";
     char *argValue = NULL;
     char *SSaddr;
     int SSport;
@@ -423,7 +519,7 @@ int main(int argc, char **argv)
 //        printf("%s,%d,%d\n", SSaddr, SSport, chosenLinkNum);
 //    }
 
-    sendURLandChainData (&cd, urlValue, returnMsg);
+    sendURLandChainData (&cd, urlValue);
     //    if (goGetFile(urlValue)) {
     //      DieWithError("Error retreiving URL.\n");
     //    }

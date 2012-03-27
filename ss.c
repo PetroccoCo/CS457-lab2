@@ -23,16 +23,23 @@
 #include <signal.h>
 #include <time.h>
 #include <stdint.h>
+#include <iostream>
+#include <fstream>
 #include "awget.h"
 
 #define MAXCHAINDATASIZE 33664 // max number of bytes for chain data
-#define MAXFILESIZE 50000 // max number of bytes we can get retrieve from URL
 #define MAXPENDING 10           // how many pending connections queue will hold
+#define MAXTIMEOUT 10 // max num seconds to wait before timeout
+#define MAXFILESIZE 550544 // max number of bytes we can get retrieve from URL
+
 int portNumber; /* port number for connection */
 char hostName[1024];
 struct chainData cdPacked, cd;
 char urlValue[255];
 char ssId[255];
+int counter = 0;
+
+using namespace std;
 
 // get sockaddr, IPv4 or IPv6:
 void *get_in_addr(struct sockaddr *sa)
@@ -45,21 +52,81 @@ void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*) sa)->sin6_addr);
 }
 
-int goGetFile (char *url) {
+int stringToFile(char *s, char *fileName)
+{
+    FILE *fd = fopen(fileName, "w");
+    if (fd == NULL)
+    {
+        DieWithError("File Open error.");
+    }
+    int i = 0;
+    while (s[i] != '\0')
+    {
+        fputc(s[i++], fd);
+    }
+    fclose(fd);
+}
 
-// tested with url = "linux.about.com/index.html".....
-// gets the file and puts it in current folder ....
-//
-// the "no-check-cert.." stuff is an attempt to wget files from
-// www.cs.colostate.edu (it almost works)
+int fileToString(char *fileName, char *s, int *fileSize)
+{
+//    FILE *fd = fopen(fileName, "r");
+//    if (fd == NULL)
+//    {
+//        DieWithError("File Open error.");
+//    }
+//    int i = 0;
+//    do
+//    {
+//        s[i] = fgetc(fd);
+//    }
+//    while (s[i++] != EOF);
+//    s[--i] = '\0';
+//    fclose(fd);
+
+    long size;
+    ifstream infile (fileName, ifstream::binary);
+    // get size of file
+    infile.seekg(0,ifstream::end);
+    *fileSize=infile.tellg();
+    infile.seekg(0);
+
+    // read content of infile
+    char buffer[MAXFILESIZE];
+    infile.read (buffer,*fileSize);
+    infile.close();
+    printf("Loaded Size: %ld\n\n", *fileSize);
+
+    strcpy (s, buffer);
+//    ofstream outfile ("newTest.pdf",ofstream::binary);
+//    // write to outfile
+//    outfile.write (s,size);
+//    outfile.close();
+}
+
+int goGetFile(char *url)
+{
 
   char cmdLine[255] = "";
   strcat(cmdLine,"wget ");
   strcat(cmdLine,url);
   strcat(cmdLine," --no-check-certificate");
 
-  if (system(cmdLine) != 0) {
-    DieWithError("System() call failed.\n");
+    if (system(cmdLine) != 0)
+    {
+        DieWithError("System() call to wget file failed.\n");
+    }
+}
+
+int rmFile(char *fileName)
+{
+
+    char cmdLine[255] = "";
+    strcat(cmdLine, "rm ");
+    strcat(cmdLine, fileName);
+
+    if (system(cmdLine) != 0)
+    {
+        DieWithError("System() call to rm file failed.\n");
   }
 }
 
@@ -82,7 +149,8 @@ void getRandomSS(struct chainData *cd, char **SSaddr, int *SSport, int *linkNumC
 void removeMeFromChainlinks(struct chainData *cData)
 {
     int found = 0;
-    for (int i = 0; i < cData->numLinks; i++)
+    int i = 0;
+    for (i = 0; i < cData->numLinks; i++)
     {
         if ((strcmp(cData->links[i].SSaddr, hostName) == 0) && (cData->links[i].SSport == portNumber))
         {
@@ -123,8 +191,7 @@ void chainDataAndURLToString(struct chainData *cd, char *urlValue, char **cdStri
 
     for (i = 0; i < cd->numLinks; i++)
     {
-        thisSize += 7 * sizeof(char)
-                + strlen(cd->links[i].SSaddr) * sizeof(char);
+        thisSize += 7 * sizeof(char) + strlen(cd->links[i].SSaddr) * sizeof(char);
         *cdString = (char*) realloc(*cdString, thisSize);
 
         sprintf(thisLine, "%s,%d\n", cd->links[i].SSaddr, cd->links[i].SSport);
@@ -157,7 +224,7 @@ void streamToURLAndChainData(char *fileStream, char *urlValue, struct chainData 
     }
 }
 
-char* sendToNextSS(struct chainData *cData, char *urlValue)
+char* sendToNextSS(struct chainData *cData, char *urlValue, int *fileSize)
 {
     struct addrinfo hints;
     struct addrinfo *servinfo;
@@ -167,12 +234,12 @@ char* sendToNextSS(struct chainData *cData, char *urlValue)
     int sockfd;
     fd_set read_fds; // temp file descriptor list for select()
     char s[INET6_ADDRSTRLEN];
-    char returnMsg[MAXFILESIZE];
     char portNo[6];
     char *buf;
     int ssPort;
     char *ssAddr;
     int linkNumChosen;
+    char totalMsg[MAXFILESIZE];
 
     /* remove myself from list of chaindata's array of chainlinks */
     removeMeFromChainlinks(cData);
@@ -217,7 +284,7 @@ char* sendToNextSS(struct chainData *cData, char *urlValue)
     }
 
     inet_ntop(p->ai_family, get_in_addr((struct sockaddr *) p->ai_addr), s, sizeof s);
-    printf("client: connecting to %s\n", s);
+    //    printf("client: connecting to %s\n", s);
 
     freeaddrinfo(servinfo); // all done with this structure
 
@@ -243,7 +310,7 @@ char* sendToNextSS(struct chainData *cData, char *urlValue)
     FD_SET(sockfd, &read_fds);
 
     // wait for response
-    tv.tv_sec = 3;
+    tv.tv_sec = MAXTIMEOUT;
     tv.tv_usec = 0;
     rv = select(sockfd + 1, &read_fds, NULL, NULL, &tv);
     if (rv == -1) // ERROR
@@ -260,18 +327,50 @@ char* sendToNextSS(struct chainData *cData, char *urlValue)
     {
         if (FD_ISSET(sockfd, &read_fds))
         {
-            recv(sockfd, returnMsg, sizeof returnMsg, 0);
+            int bytesRecv = 0;
+            char buffer[MAXFILESIZE];
+            int sizeBuffer;
+
+            // receive the header - file size
+            if (recv(sockfd, &sizeBuffer, 4, 0) == -1)
+            {
+                perror("Error in recv()\n");
+                exit(7);
+            }
+            sizeBuffer = ntohl(sizeBuffer);
+            *fileSize = sizeBuffer;
+
+            printf("GOT MESSAGE SIZE: %d\n\n", sizeBuffer);
+            strcpy (totalMsg, "");
+            while (bytesRecv < sizeBuffer)
+            {
+                printf("Bytes begin recv: %d\n\n", bytesRecv);
+                bytesRecv = bytesRecv + recv(sockfd, buf, (sizeBuffer - bytesRecv), 0);
+                printf("Bytes recv: %d\n\n", bytesRecv);
+                strcat(totalMsg, buffer);
+                printf("Cat done");
+            }
+            printf("Received num bytes - %d\n\n", bytesRecv);
             close(sockfd);
             printf("Fetching %s\nRelay successfully completed!\n", urlValue);
+
+            //XXX: REMOVE!
+//            char servName[80];
+//            sprintf(servName, "SKIPTestEarly-%d-%d.pdf", portNumber, counter++);
+//            ofstream outfile (servName, ofstream::binary);
+//            printf("Writing skip output file");
+//            // write to outfile
+//            outfile.write (totalMsg, *fileSize);
+//            outfile.close();
         }
     }
 
-    return returnMsg;
+    return totalMsg;
 }
 
 void startServer(char* cPortNumber)
 {
-    struct chainData *chaindata;
+    struct chainData *chaindata = new chainData();
     fd_set master; // master file descriptor list
     fd_set read_fds; // temp file descriptor list for select()
     struct addrinfo hints;
@@ -280,15 +379,22 @@ void startServer(char* cPortNumber)
     int nbytes;
     char remoteIP[INET6_ADDRSTRLEN];
     int recvMsgSize = 8192;
-    char buf[8192];
-    char returnMsg[MAXFILESIZE]; // buffer for file to retrieve
+    socklen_t addrlen;
+    struct sockaddr_storage remoteaddr; // client address
+
+    char returnMsg[MAXFILESIZE+1] = {};
+    int fileSize = 0;
+    char localFileName[100] = {};
+    int fileSizeMsg = 0;
+    int bytesSent = 0;
+    char sendBuffer[MAXFILESIZE+2] = {};
     int rv;
     int listener; // listening socket descriptor
     int newfd; // newly accept()ed socket descriptor
     int fdmax; // maximum file descriptor number
     int yes = 1; // for setsockopt() SO_REUSEADDR, below
-    socklen_t addrlen;
-    struct sockaddr_storage remoteaddr; // client address
+
+    //    printf("into startServer\n");
 
     // Start server
     FD_ZERO(&master); // clear the master and temp sets
@@ -303,7 +409,7 @@ void startServer(char* cPortNumber)
         fprintf(stderr, "Server Error: %s\n", gai_strerror(rv));
         exit(1);
     }
-
+    //    printf("past getaddrinfo()\n");
     for (p = ai; p != NULL; p = p->ai_next)
     {
         // create listener socket
@@ -324,6 +430,7 @@ void startServer(char* cPortNumber)
 
         break; // successful socket creation
     }
+    //    printf("past listener socket loop\n");
 
     if (p == NULL) // if we got here, it means we didn't get bound
     {
@@ -362,6 +469,7 @@ void startServer(char* cPortNumber)
         {
             if (FD_ISSET(i, &read_fds))
             { // we got one!!
+
                 if (i == listener)
                 {
                     // handle new connections
@@ -387,65 +495,92 @@ void startServer(char* cPortNumber)
                 }
                 else // Data has returned on the socket meant for data transfer
                 {
-                    int vv;
-                    vv = 5;
+                    char buf[8192] = {};
+
                     // handle data from a client
                     if ((nbytes = recv(i, buf, recvMsgSize, 0)) <= 0)
                     { // ERROR STATE
                       // got error or connection closed by client
-                        if (nbytes == 0)
-                        {
+                        if (nbytes == 0) {
                             // connection closed
                             printf("Server: socket %d hung up. (Cxn closed)\n", i);
-                        }
-                        else
-                        {
+                        } else {
                             perror("Server Error: Error in recv");
-                            exit(6);
-                        }
+                            exit(6); }
                         close(i); // bye!
                         FD_CLR(i, &master); // remove from master set
                     }
                     else
                     { // Received data properly - HANDLE DATA HERE
-                      // print out the data to the server console.
-                        chaindata = new chainData();
                         streamToURLAndChainData(buf, urlValue, chaindata);
 
                         printf("%s - NumLinks remaining in chaindata is: %u\n", ssId, chaindata->numLinks);
 
                         if (chaindata->numLinks > 1)
                         { // Need to forward to other SS's
-                            // Forward this to next SS and get return msg
                             fprintf(stdout, "Receiving request\n");
-                            strcpy(returnMsg, sendToNextSS(chaindata, urlValue));
+                            strcpy(returnMsg, sendToNextSS(chaindata, urlValue, &fileSize));
+                            printf("Done stepping\n\n");
+
+                            //XXX: REMOVE!
+//                            char servName[80];
+//                            sprintf(servName, "SKIPTest-%d-%d.pdf", portNumber, counter);
+//                            printf("Done naming\n\n");
+//                            ofstream outfile (servName, ofstream::binary);
+//                            // write to outfile
+//                            outfile.write (returnMsg, fileSize);
+//                            outfile.close();
                         }
                         else if (chaindata->numLinks == 1)
                         { // Last SS, time to retrieve the document
                             fprintf(stdout, "This is the last SS, wget %s\n", urlValue);
-                            /* TODO: (URL HANDLER) EXECUTE SYSTEM() TO ISSUE WGET.
-                             * The commented line of code below is a suggestion of how to implement the URL handler.
-                             * Feel free to change it as long as there is a populated returnMsg variable after the
-                             * file is retrieved.
-                             */
-                            // strcpy(returnMsg, getFile(&chaindata));
-                            // XXX: TEST CODE
-                            strcpy(returnMsg, "TEST TEST TEST TEST TEST TEST");
-                            printf("Relay file...\nSuccessful!\n");
+                            goGetFile(urlValue);
+                            printf("File saved\n\n");
+                            strcpy (localFileName, basename(urlValue));
+
+                            fileToString(basename(urlValue), returnMsg, &fileSize);
+                            // sendStringToParentThread(fileContents);
+//                            printf("File downloaded: %s\n", returnMsg);
+//                            printf("File downloaded CONTENTS: %s\n", fileContents);
+                            printf("FILESIZE: %d\n\n", fileSize);
+
+                            //XXX: REMOVE!
+//                            char servName[80];
+//                            sprintf(servName, "SKIPBirth-%d.pdf", portNumber);
+//                            ofstream outfile (servName, ofstream::binary);
+//                            // write to outfile
+//                            outfile.write (returnMsg, fileSize);
+//                            outfile.close();
                         }
 
-                        // successful message retrieval.  return message to sender
-                        if (send(i, returnMsg, MAXFILESIZE, 0) == -1) // sending 1 byte message
+                        printf("Sending file size");
+                        // send filesize as a 4 byte header
+                        fileSizeMsg = htonl(fileSize);
+                        if (send(i, &fileSizeMsg, 4, 0) == -1)
                         {
                             perror("Error in send()\n");
                             exit(7);
                         }
-                        else
+
+                        printf("Sending payload (filesize is %d)\n\n", fileSize);
+
+                        // send payload; keep send()ing until it is complete
+                        while (bytesSent < fileSize)
                         {
+//                            char *to = (char*) malloc(fileSize-bytesSent+1);
+                            strncpy(sendBuffer, returnMsg+bytesSent, fileSize-bytesSent);
+                            bytesSent = bytesSent + send(i, sendBuffer, (fileSize-bytesSent), 0);
+//                            free(to);
+                        }
+                        if (bytesSent == -1) { // sending message
+                            perror("Error in send()\n");
+                            exit(7);
+                        } else {
                             /* TODO: (CLEANUP) Message has returned, do necessary cleanup to cover tracks.
                              * Needs to be aware of the (URL HANDLER) code because that is where a local copy is stored.  Coordinate
                              * to clean up those files.
                              */
+                            printf("DBG: Bytes sent - %d\n\n", bytesSent);
                             FD_CLR(i, &master); // remove from master set
                         }
                     }
@@ -540,6 +675,7 @@ int main(int argc, char **argv)
     strcpy(ssId, hostName);
     strcat(ssId, ":");
     strcat(ssId, cPortNumber);
+    //    printf("calling startServer\n");
     startServer(cPortNumber);
 
     return 0;

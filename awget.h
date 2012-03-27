@@ -9,7 +9,6 @@ struct chainData
   struct chainLink links[255];
 };
 
-
 void
 DieWithError (char *errorMessage)
 {

@@ -1,4 +1,4 @@
-4
+2
 ubuntu,30031
 ubuntu,30032
 ubuntu,30033
