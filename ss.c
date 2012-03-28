@@ -29,7 +29,7 @@
 
 #define MAXCHAINDATASIZE 33664 // max number of bytes for chain data
 #define MAXPENDING 10           // how many pending connections queue will hold
-#define MAXTIMEOUT 10 // max num seconds to wait before timeout
+#define MAXTIMEOUT 20 // max num seconds to wait before timeout
 #define MAXFILESIZE 550544 // max number of bytes we can get retrieve from URL
 
 int portNumber; /* port number for connection */
@@ -52,7 +52,7 @@ void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*) sa)->sin6_addr);
 }
 
-int stringToFile(char *s, char *fileName)
+int stringToFile(char *s, char *fileName, int fileSize)
 {
     FILE *fd = fopen(fileName, "w");
     if (fd == NULL)
@@ -60,29 +60,24 @@ int stringToFile(char *s, char *fileName)
         DieWithError("File Open error.");
     }
     int i = 0;
-    while (s[i] != '\0')
+    for (i; i < fileSize; i++)
     {
-        fputc(s[i++], fd);
+        fputc(s[i], fd);
     }
+//    while (s[i] != '\0')
+//    {
+//        fputc(s[i++], fd);
+//    }
     fclose(fd);
+
+//    ofstream outfile ("newAwgetTest.pdf");
+//    // write to outfile
+//    outfile.write (s, 148544);
+//    outfile.close();
 }
 
 int fileToString(char *fileName, char *s, int *fileSize)
 {
-//    FILE *fd = fopen(fileName, "r");
-//    if (fd == NULL)
-//    {
-//        DieWithError("File Open error.");
-//    }
-//    int i = 0;
-//    do
-//    {
-//        s[i] = fgetc(fd);
-//    }
-//    while (s[i++] != EOF);
-//    s[--i] = '\0';
-//    fclose(fd);
-
     long size;
     ifstream infile (fileName, ifstream::binary);
     // get size of file
@@ -96,10 +91,11 @@ int fileToString(char *fileName, char *s, int *fileSize)
     infile.close();
     printf("Loaded Size: %ld\n\n", *fileSize);
 
-    strcpy (s, buffer);
+    memcpy (s, buffer, *fileSize);
+
 //    ofstream outfile ("newTest.pdf",ofstream::binary);
 //    // write to outfile
-//    outfile.write (s,size);
+//    outfile.write (s,*fileSize);
 //    outfile.close();
 }
 
@@ -241,7 +237,11 @@ char* sendToNextSS(struct chainData *cData, char *urlValue, int *fileSize)
     int ssPort;
     char *ssAddr;
     int linkNumChosen;
-    char totalMsg[MAXFILESIZE];
+    char *totalMsg;
+    int bytesRecv = 0;
+    int recvRV = 0;
+    char *buffer;
+    int sizeBuffer;
 
     /* remove myself from list of chaindata's array of chainlinks */
     removeMeFromChainlinks(cData);
@@ -330,28 +330,31 @@ char* sendToNextSS(struct chainData *cData, char *urlValue, int *fileSize)
     {
         if (FD_ISSET(sockfd, &read_fds))
         {
-            int bytesRecv = 0;
-            char buffer[MAXFILESIZE];
-            int sizeBuffer;
-
             // receive the header - file size
-            if (recv(sockfd, &sizeBuffer, 4, 0) == -1)
-            {
-                perror("Error in recv()\n");
-                exit(7);
-            }
+            if (recv(sockfd, &sizeBuffer, 4, 0) == -1) { perror("Error in recv()\n"); exit(7); }
             sizeBuffer = ntohl(sizeBuffer);
             *fileSize = sizeBuffer;
 
             printf("GOT MESSAGE SIZE: %d\n\n", sizeBuffer);
-            strcpy (totalMsg, "");
+            totalMsg = (char*) malloc(sizeBuffer);
+            int i = 0;
+            int msgIndex = 0;
             while (bytesRecv < sizeBuffer)
             {
+                buffer = (char*) malloc(sizeBuffer - bytesRecv);
                 printf("Bytes begin recv: %d\n\n", bytesRecv);
-                bytesRecv = bytesRecv + recv(sockfd, buffer, (sizeBuffer - bytesRecv), 0);
+                recvRV = recv(sockfd, buffer, (sizeBuffer - bytesRecv), 0);
+                if (recvRV == -1) { perror("Error in recv()\n"); exit(7); }
+                else
+                {
+                    bytesRecv = bytesRecv + recvRV;
+                }
                 printf("Bytes recv: %d\n\n", bytesRecv);
-                strcat(totalMsg, buffer);
-                printf("Cat done");
+                for (i = 0; i < recvRV; i++)
+                {
+                    totalMsg[msgIndex++] = buffer[i];
+                }
+                printf("Cat done\n");
             }
             printf("Received num bytes - %d\n\n", bytesRecv);
             close(sockfd);
@@ -385,12 +388,11 @@ void startServer(char* cPortNumber)
     socklen_t addrlen;
     struct sockaddr_storage remoteaddr; // client address
 
-    char returnMsg[MAXFILESIZE+1] = {};
+    char *returnMsg;
     int fileSize = 0;
-    char localFileName[100] = {};
     int fileSizeMsg = 0;
     int bytesSent = 0;
-    char sendBuffer[MAXFILESIZE+2] = {};
+    char *sendBuffer;
     int rv;
     int listener; // listening socket descriptor
     int newfd; // newly accept()ed socket descriptor
@@ -436,19 +438,13 @@ void startServer(char* cPortNumber)
     //    printf("past listener socket loop\n");
 
     if (p == NULL) // if we got here, it means we didn't get bound
-    {
-        fprintf(stderr, "Server Error: Failed to bind to socket for listener\n");
-        exit(2);
-    }
+    { fprintf(stderr, "Server Error: Failed to bind to socket for listener\n"); exit(2); }
 
     freeaddrinfo(ai); // all done with this
 
     // listen
     if (listen(listener, 10) == -1)
-    {
-        fprintf(stderr, "Server Error: Listener socket setup error");
-        exit(3);
-    }
+    { fprintf(stderr, "Server Error: Listener socket setup error"); exit(3); }
 
     // add the listener to the master set
     FD_SET(listener, &master);
@@ -516,13 +512,14 @@ void startServer(char* cPortNumber)
                     else
                     { // Received data properly - HANDLE DATA HERE
                         streamToURLAndChainData(buf, urlValue, chaindata);
+                        returnMsg = (char*) malloc(MAXFILESIZE+20);
 
                         printf("%s - NumLinks remaining in chaindata is: %u\n", ssId, chaindata->numLinks);
 
                         if (chaindata->numLinks > 1)
                         { // Need to forward to other SS's
                             fprintf(stdout, "Receiving request\n");
-                            strcpy(returnMsg, sendToNextSS(chaindata, urlValue, &fileSize));
+                            strncpy(returnMsg, sendToNextSS(chaindata, urlValue, &fileSize), fileSize);
                             printf("Done stepping\n\n");
 
                             //XXX: REMOVE!
@@ -536,53 +533,42 @@ void startServer(char* cPortNumber)
                         }
                         else if (chaindata->numLinks == 1)
                         { // Last SS, time to retrieve the document
-                            fprintf(stdout, "This is the last SS, wget %s\n", urlValue);
                             goGetFile(urlValue);
-                            printf("File saved\n\n");
-                            strcpy (localFileName, basename(urlValue));
 
                             fileToString(basename(urlValue), returnMsg, &fileSize);
                             // sendStringToParentThread(fileContents);
-//                            printf("File downloaded: %s\n", returnMsg);
-//                            printf("File downloaded CONTENTS: %s\n", fileContents);
-                            printf("FILESIZE: %d\n\n", fileSize);
 
                             //XXX: REMOVE!
 //                            char servName[80];
-//                            sprintf(servName, "SKIPBirth-%d.pdf", portNumber);
-//                            ofstream outfile (servName, ofstream::binary);
+//                            sprintf(servName, "SKIPTestSource-%d-%d.pdf", portNumber, counter);
+//                            ofstream outfile(servName, ofstream::binary);
 //                            // write to outfile
 //                            outfile.write (returnMsg, fileSize);
 //                            outfile.close();
                         }
 
-                        printf("Sending file size");
                         // send filesize as a 4 byte header
                         fileSizeMsg = htonl(fileSize);
-                        if (send(i, &fileSizeMsg, 4, 0) == -1)
-                        {
-                            perror("Error in send()\n");
-                            exit(7);
-                        }
+                        if (send(i, &fileSizeMsg, 4, 0) == -1) { perror("Error in send()\n"); exit(7); }
 
                         printf("Sending payload (filesize is %d)\n\n", fileSize);
 
                         // send payload; keep send()ing until it is complete
+                        bytesSent = 0;
                         while (bytesSent < fileSize)
                         {
-//                            char *to = (char*) malloc(fileSize-bytesSent+1);
-                            strncpy(sendBuffer, returnMsg+bytesSent, fileSize-bytesSent);
+                            sendBuffer = (char*) malloc(fileSize-bytesSent);
+                            memcpy(sendBuffer, returnMsg+bytesSent, fileSize-bytesSent);
                             bytesSent = bytesSent + send(i, sendBuffer, (fileSize-bytesSent), 0);
-//                            free(to);
+                            printf("Sent back %d bytes\n\n", bytesSent);
                         }
                         if (bytesSent == -1) { // sending message
                             perror("Error in send()\n");
                             exit(7);
-                        } else {
-                            /* TODO: (CLEANUP) Message has returned, do necessary cleanup to cover tracks.
-                             * Needs to be aware of the (URL HANDLER) code because that is where a local copy is stored.  Coordinate
-                             * to clean up those files.
-                             */
+                        }
+                        else
+                        {
+                            free(returnMsg);
                             printf("DBG: Bytes sent - %d\n\n", bytesSent);
                             FD_CLR(i, &master); // remove from master set
                         }

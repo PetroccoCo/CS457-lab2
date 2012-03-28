@@ -42,7 +42,7 @@ int printUsage()
     return 0;
 }
 
-int stringToFile(char *s, char *fileName)
+int stringToFile(char *s, char *fileName, int fileSize)
 {
     FILE *fd = fopen(fileName, "w");
     if (fd == NULL)
@@ -50,16 +50,20 @@ int stringToFile(char *s, char *fileName)
         DieWithError("File Open error.");
     }
     int i = 0;
-    while (s[i] != '\0')
+    for (i; i < fileSize; i++)
     {
-        fputc(s[i++], fd);
+        fputc(s[i], fd);
     }
+//    while (s[i] != '\0')
+//    {
+//        fputc(s[i++], fd);
+//    }
     fclose(fd);
 
-    ofstream outfile ("newAwgetTest.pdf",ofstream::binary);
-    // write to outfile
-    outfile.write (s, 148544);
-    outfile.close();
+//    ofstream outfile ("newAwgetTest.pdf");
+//    // write to outfile
+//    outfile.write (s, 148544);
+//    outfile.close();
 }
 
 int fileToString(char *fileName, char *s) {
@@ -390,7 +394,7 @@ void sendURLandChainData(struct chainData *cd, char *urlValue)
              * the returnMsg variable. */
 
             int bytesRecv = 0;
-            char buffer[MAXFILESIZE];
+            char *buffer;
             int sizeBuffer = 0;
             // receive the header - file size
             if (recv(sock, &sizeBuffer, 4, 0) == -1) {
@@ -403,6 +407,7 @@ void sendURLandChainData(struct chainData *cd, char *urlValue)
 
             while (bytesRecv < sizeBuffer)
             {
+                buffer = (char*) malloc(sizeBuffer - bytesRecv);
                 bytesRecv = bytesRecv + recv(sock, buffer, (sizeBuffer - bytesRecv), 0);
                 strcat(returnMsg, buffer);
             }
@@ -412,7 +417,16 @@ void sendURLandChainData(struct chainData *cd, char *urlValue)
             char *localFileName;
             localFileName = basename(urlValue);
             //            stringToFile(returnMsg, localFileName);
-            stringToFile(returnMsg, "FinalOutput.pdf");
+
+            //XXX: REMOVE!
+            char servName[80];
+            sprintf(servName, "AWGETFINAL.pdf");
+            ofstream outfile(servName);
+            // write to outfile
+            outfile.write (returnMsg, sizeBuffer);
+            outfile.close();
+
+            // stringToFile(returnMsg, "FinalOutput.pdf", sizeBuffer);
 
 
 
