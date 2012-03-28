@@ -99,6 +99,15 @@ int fileToString(char *fileName, char *s, int *fileSize)
 //    outfile.close();
 }
 
+void deleteFile(char *fileName)
+{
+    if(remove(fileName) != 0)
+    {
+        perror("Error deleting file");
+        exit(0);
+    }
+}
+
 int goGetFile(char *url)
 {
 // tested this using linux.about.com/index.html and it works.
@@ -536,6 +545,7 @@ void startServer(char* cPortNumber)
                             goGetFile(urlValue);
 
                             fileToString(basename(urlValue), returnMsg, &fileSize);
+                            deleteFile(basename(urlValue));
                             // sendStringToParentThread(fileContents);
 
                             //XXX: REMOVE!

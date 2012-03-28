@@ -66,17 +66,27 @@ int stringToFile(char *s, char *fileName, int fileSize)
 //    outfile.close();
 }
 
-int fileToString(char *fileName, char *s) {
-    FILE *fd = fopen(fileName, "r");
-    if (fd == NULL) {
-        DieWithError("File Open error.");
-    }
-    int i = 0;
-    do {
-      s[i] = fgetc(fd);
-    } while (s[i++] != EOF);
-    s[--i] = '\0';
-    fclose(fd);
+int fileToString(char *fileName, char *s, int *fileSize)
+{
+    long size;
+    ifstream infile (fileName, ifstream::binary);
+    // get size of file
+    infile.seekg(0,ifstream::end);
+    *fileSize=infile.tellg();
+    infile.seekg(0);
+
+    // read content of infile
+    char buffer[MAXFILESIZE];
+    infile.read (buffer,*fileSize);
+    infile.close();
+    printf("Loaded Size: %ld\n\n", *fileSize);
+
+    memcpy (s, buffer, *fileSize);
+
+//    ofstream outfile ("newTest.pdf",ofstream::binary);
+//    // write to outfile
+//    outfile.write (s,*fileSize);
+//    outfile.close();
 }
 
 /***
