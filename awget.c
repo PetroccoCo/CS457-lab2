@@ -415,26 +415,36 @@ void sendURLandChainData(struct chainData *cd, char *urlValue)
 
 
 
+	    int firstTime = 1;
+	    int iSize = 0;
             while (bytesRecv < sizeBuffer)
             {
-                buffer = (char*) malloc(sizeBuffer - bytesRecv);
-                bytesRecv = bytesRecv + recv(sock, buffer, (sizeBuffer - bytesRecv), 0);
-                strcat(returnMsg, buffer);
+  	        iSize = sizeBuffer - bytesRecv;
+	        buffer = (char *) malloc (sizeof(char*) * (iSize + 1));
+                bytesRecv = bytesRecv + recv(sock, buffer, iSize, 0);
+		if (firstTime) {
+		    firstTime = 0;
+ 		    strncpy(returnMsg,buffer,iSize);
+		    returnMsg[iSize] = '\0';
+		} else {
+		    strcat(returnMsg, buffer);
+		}
+		free(buffer);
             }
             printf("Received num bytes - %d\n\n", bytesRecv);
             close(sock);
 
             char *localFileName;
             localFileName = basename(urlValue);
-            //            stringToFile(returnMsg, localFileName);
+            stringToFile(returnMsg, localFileName, bytesRecv);
 
             //XXX: REMOVE!
-            char servName[80];
-            sprintf(servName, "AWGETFINAL.pdf");
-            ofstream outfile(servName);
+	    //            char servName[80];
+	    //            sprintf(servName, "AWGETFINAL.pdf");
+	    //            ofstream outfile(servName);
             // write to outfile
-            outfile.write (returnMsg, sizeBuffer);
-            outfile.close();
+	    //            outfile.write (returnMsg, sizeBuffer);
+	    //            outfile.close();
 
             // stringToFile(returnMsg, "FinalOutput.pdf", sizeBuffer);
 
