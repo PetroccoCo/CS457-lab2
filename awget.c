@@ -2,7 +2,6 @@
  CS457DL Project 2
  Steve Watts
  Jason Kim
- Pete Winterscheidt
  */
 
 /* This is the awget program portion of the CS457DL Lab/Programming Assignnment 2 */
@@ -79,7 +78,7 @@ int fileToString(char *fileName, char *s, int *fileSize)
     char buffer[MAXFILESIZE];
     infile.read (buffer,*fileSize);
     infile.close();
-    printf("Loaded Size: %ld\n\n", *fileSize);
+ //   printf("Loaded Size: %ld\n\n", *fileSize);
 
     memcpy (s, buffer, *fileSize);
 
@@ -195,7 +194,7 @@ int sanityCheckFile(char *fname)
         }
     }
 
-    printf("FILE LINES = %d\n", iRead);
+//    printf("FILE LINES = %d\n", iRead);
 
     for (i = 0; i < iRead; i++)
     {
@@ -370,12 +369,12 @@ void sendURLandChainData(struct chainData *cd, char *urlValue)
         DieWithError("send() sent a different number of bytes than expected");
 
     /* let everyone know the URL was sent */
-    fprintf(stdout, "send buffer size = %d\n", strlen(buf));
-    fprintf(stdout, "Sent chainfile contents to server %s:%d via TCP\n",
-            serverName, portNumber);
-    fprintf(stdout, "URL and Chainlist are:\n*********\n%s\n*********\n", buf);
-    fprintf(stdout, "Next SS is %s, %d\n", SSaddr, SSport);
-    fprintf(stdout, "Waiting for file...\n..\n");
+//    fprintf(stdout, "send buffer size = %d\n", strlen(buf));
+//    fprintf(stdout, "Sent chainfile contents to server %s:%d via TCP\n",
+//            serverName, portNumber);
+//    fprintf(stdout, "URL and Chainlist are:\n*********\n%s\n*********\n", buf);
+//    fprintf(stdout, "Next SS is %s, %d\n", SSaddr, SSport);
+//    fprintf(stdout, "Waiting for file...\n..\n");
     free(buf);
 
     /* prepare descriptor set */
@@ -411,7 +410,7 @@ void sendURLandChainData(struct chainData *cd, char *urlValue)
                 perror("Error in recv()\n");
                 exit(7); }
             sizeBuffer = ntohl(sizeBuffer);
-            printf("Size Buffer: %d\n\n", sizeBuffer);
+//            printf("Size Buffer: %d\n\n", sizeBuffer);
 
 
 
@@ -431,33 +430,15 @@ void sendURLandChainData(struct chainData *cd, char *urlValue)
 		}
 		free(buffer);
             }
-            printf("Received num bytes - %d\n\n", bytesRecv);
+//            printf("Received num bytes - %d\n\n", bytesRecv);
             close(sock);
 
             char *localFileName;
             localFileName = basename(urlValue);
             stringToFile(returnMsg, localFileName, bytesRecv);
 
-            //XXX: REMOVE!
-	    //            char servName[80];
-	    //            sprintf(servName, "AWGETFINAL.pdf");
-	    //            ofstream outfile(servName);
-            // write to outfile
-	    //            outfile.write (returnMsg, sizeBuffer);
-	    //            outfile.close();
-
-            // stringToFile(returnMsg, "FinalOutput.pdf", sizeBuffer);
-
-
-
-//            char buf[MAXFILESIZE];
-//            recv(sock, buf, MAXFILESIZE, 0);
-//            strcpy(returnMsg, buf);
-//            printf("BUF: %s\n\n", buf);
-//            printf("MSG: %s\n\n", returnMsg);
-
-            fprintf(stdout, "Received file successfully.\nResult file: %s\n", localFileName);
-            fprintf(stdout, "Send was a Success - exiting.  Goodbye!\n");
+            printf("fetch file successfully\n");
+            printf("result file: %s\n",localFileName);
         }
     }
 
@@ -543,19 +524,10 @@ int main(int argc, char **argv)
     }
     fclose(fd);
 
-//    dbgPrintChainData(&cd);
-//    printf("\n");
-
-    // test random SS retrieval
-//    for (i = 0; i < 10; i++)
-//    {
-//        getRandomSS(&cd, &SSaddr, &SSport, &chosenLinkNum);
-//        printf("%s,%d,%d\n", SSaddr, SSport, chosenLinkNum);
-//    }
+    dbgPrintChainData(&cd);
+    printf("%s\n",urlValue);
 
     sendURLandChainData (&cd, urlValue);
-    //    if (goGetFile(urlValue)) {
-    //      DieWithError("Error retreiving URL.\n");
-    //    }
+
     return 0;
 }
