@@ -30,7 +30,6 @@
 #define MAXPORTNUMBER 65535
 #define MAXFILESIZE 550544 // max number of bytes we can get retrieve from URL
 #define MAXTIMEOUT 10 // max num seconds to wait before timeout
-
 char urlValue[255];
 
 using namespace std;
@@ -48,6 +47,7 @@ int stringToFile(char *s, char *fileName, int fileSize)
     {
         DieWithError("File Open error.");
     }
+//    printf("Writing...%d bytes\n", fileSize);
     int i = 0;
     for (i; i < fileSize; i++)
     {
@@ -68,19 +68,20 @@ int stringToFile(char *s, char *fileName, int fileSize)
 int fileToString(char *fileName, char *s, int *fileSize)
 {
     long size;
-    ifstream infile (fileName, ifstream::binary);
+    ifstream
+    infile (fileName, ifstream::binary);
     // get size of file
     infile.seekg(0,ifstream::end);
-    *fileSize=infile.tellg();
+    *fileSize = infile.tellg();
     infile.seekg(0);
 
     // read content of infile
     char buffer[MAXFILESIZE];
-    infile.read (buffer,*fileSize);
+    infile.read(buffer, *fileSize);
     infile.close();
- //   printf("Loaded Size: %ld\n\n", *fileSize);
+    //   printf("Loaded Size: %ld\n\n", *fileSize);
 
-    memcpy (s, buffer, *fileSize);
+    memcpy(s, buffer, *fileSize);
 
 //    ofstream outfile ("newTest.pdf",ofstream::binary);
 //    // write to outfile
@@ -91,7 +92,7 @@ int fileToString(char *fileName, char *s, int *fileSize)
 /***
  * Remove this stepping stone's entry from list of chainlinks
  */
-void removeEntryFromChainlinks(struct chainData *cData,char *hostName, int portNumber)
+void removeEntryFromChainlinks(struct chainData *cData, char *hostName, int portNumber)
 {
     int found = 0;
     int i = 0;
@@ -114,7 +115,7 @@ void removeEntryFromChainlinks(struct chainData *cData,char *hostName, int portN
 
     if (!found)
     {
-        DieWithError ("Error while removing this hostname from links in chaindata");
+        DieWithError("Error while removing this hostname from links in chaindata");
     }
 }
 
@@ -136,8 +137,7 @@ void chainDataAndURLToString(struct chainData *cd, char *urlValue, char **cdStri
 
     for (i = 0; i < cd->numLinks; i++)
     {
-        thisSize += 7 * sizeof(char)
-                + strlen(cd->links[i].SSaddr) * sizeof(char);
+        thisSize += 7 * sizeof(char) + strlen(cd->links[i].SSaddr) * sizeof(char);
         *cdString = (char*) realloc(*cdString, thisSize);
 
         sprintf(thisLine, "%s,%d\n", cd->links[i].SSaddr, cd->links[i].SSport);
@@ -148,8 +148,7 @@ void chainDataAndURLToString(struct chainData *cd, char *urlValue, char **cdStri
 /***
  * populates SSaddr, SSport, and linkNumChosen with random chainlink from chainData cd
  */
-void getRandomSS(struct chainData *cd, char **SSaddr, int *SSport,
-        int *linkNumChosen)
+void getRandomSS(struct chainData *cd, char **SSaddr, int *SSport, int *linkNumChosen)
 {
     int i = 0;
     i = rand() % cd->numLinks;
@@ -183,7 +182,8 @@ int sanityCheckFile(char *fname)
     if (fgets(buf, 255, fd) == NULL)
     {
         return 1;
-    } else
+    }
+    else
     {
         if (strcmp("0", buf) != 0)
         {
@@ -201,7 +201,8 @@ int sanityCheckFile(char *fname)
         if (fgets(buf, 255, fd) == NULL)
         {
             return (2 + i);
-        } else
+        }
+        else
         {
             sLen = strlen(buf);
             comma = strchr(buf, ',');
@@ -217,8 +218,7 @@ int sanityCheckFile(char *fname)
             for (j = 0; j < strlen(SSport) - 1; j++)
             {
                 /* this check is needed because text files in windows have \n\r instead of just \n */
-                if ((SSport[j] != '\n') && (SSport[j] != '\r')
-                        && (!isdigit(SSport[j])))
+                if ((SSport[j] != '\n') && (SSport[j] != '\r') && (!isdigit(SSport[j])))
                 {
                     return (2 + i);
                 }
@@ -255,7 +255,8 @@ int readChainFile(FILE *fd, struct chainData *cd)
     if (fgets(buf, 255, fd) == NULL)
     {
         return 1;
-    } else
+    }
+    else
     {
         if ((iRead = atoi(buf)) == 0)
         {
@@ -264,17 +265,21 @@ int readChainFile(FILE *fd, struct chainData *cd)
     }
     cd->numLinks = iRead;
 
+    printf("Printing SS list:\n");
     for (i = 0; i < cd->numLinks; i++)
     {
         if (fgets(buf, 255, fd) == NULL)
         {
             return 1;
-        } else
+        }
+        else
         {
             token = strtok(buf, ",");
             strcpy(cd->links[i].SSaddr, token);
             token = strtok(NULL, ",");
             cd->links[i].SSport = atoi(token);
+
+            printf("SS #%d - addr: %s, port: %d\n", i, cd->links[i].SSaddr, cd->links[i].SSport);
         }
     }
 
@@ -295,11 +300,12 @@ void sendURLandChainData(struct chainData *cd, char *urlValue)
     int SSport, portNumber;
     int i;
     char *buf;
-    char returnMsg[MAXFILESIZE+1];
+//    char returnMsg[MAXFILESIZE + 1];
+    char *returnMsg;
     int chosenLinkNum;
     int ipAddressEntered = 1; /* flag to indicate an IP address was entered as -s arg */
     struct chainData cdSend;
-    fd_set read_fds;  // temp file descriptor list for select()
+    fd_set read_fds; // temp file descriptor list for select()
     struct timeval tv;
     int rv;
 
@@ -335,7 +341,8 @@ void sendURLandChainData(struct chainData *cd, char *urlValue)
     {
         /* load the address */
         myServAddr.sin_addr.s_addr = inet_addr(serverName);
-    } else
+    }
+    else
     {
         /* if a hostname was entered, we need to look for IP address */
         hostentStruct = gethostbyname(serverName);
@@ -343,8 +350,7 @@ void sendURLandChainData(struct chainData *cd, char *urlValue)
             DieWithError("gethostbyname() failed");
 
         /* get the correct "format" of the IP address */
-        serverName = inet_ntoa(
-                *(struct in_addr *) (hostentStruct->h_addr_list[0]));
+        serverName = inet_ntoa(*(struct in_addr *) (hostentStruct->h_addr_list[0]));
         if (serverName == NULL)
         {
             fprintf(stderr, "inet_ntoa() failed.\n");
@@ -352,8 +358,7 @@ void sendURLandChainData(struct chainData *cd, char *urlValue)
         }
 
         /* load the address */
-        memcpy(&myServAddr.sin_addr, hostentStruct->h_addr_list[0],
-                hostentStruct->h_length);
+        memcpy(&myServAddr.sin_addr, hostentStruct->h_addr_list[0], hostentStruct->h_length);
     }
     /* load the port */
     myServAddr.sin_port = htons(portNumber); /* Server port */
@@ -384,7 +389,7 @@ void sendURLandChainData(struct chainData *cd, char *urlValue)
     // wait for response
     tv.tv_sec = MAXTIMEOUT;
     tv.tv_usec = 0;
-    rv = select(sock+1, &read_fds, NULL, NULL, &tv);
+    rv = select(sock + 1, &read_fds, NULL, NULL, &tv);
     if (rv == -1) // ERROR
     {
         perror("Error in select()");
@@ -399,46 +404,45 @@ void sendURLandChainData(struct chainData *cd, char *urlValue)
     {
         if (FD_ISSET(sock, &read_fds))
         {
-            /* TODO: Need to add Receive File code.  Currently it just reads a char array back and stores that in
-             * the returnMsg variable. */
-
             int bytesRecv = 0;
             char *buffer;
             int sizeBuffer = 0;
             // receive the header - file size
-            if (recv(sock, &sizeBuffer, 4, 0) == -1) {
+            if (recv(sock, &sizeBuffer, 4, 0) == -1)
+            {
                 perror("Error in recv()\n");
-                exit(7); }
+                exit(7);
+            }
             sizeBuffer = ntohl(sizeBuffer);
 //            printf("Size Buffer: %d\n\n", sizeBuffer);
 
-
-
-	    int firstTime = 1;
-	    int iSize = 0;
-            while (bytesRecv < sizeBuffer)
+            returnMsg = (char *) malloc(sizeBuffer);
+            int firstTime = 1;
+            int iSize = 0;
+            int fileIndex = 0;
+            int bytesToGet = sizeBuffer;
+            int doneRecv = 0;
+            while (0 < bytesToGet)
             {
-  	        iSize = sizeBuffer - bytesRecv;
-	        buffer = (char *) malloc (sizeof(char*) * (iSize + 1));
-                bytesRecv = bytesRecv + recv(sock, buffer, iSize, 0);
-		if (firstTime) {
-		    firstTime = 0;
- 		    strncpy(returnMsg,buffer,iSize);
-		    returnMsg[iSize] = '\0';
-		} else {
-		    strcat(returnMsg, buffer);
-		}
-		free(buffer);
+                buffer = (char *) malloc(sizeof(char*) * (bytesToGet));
+                bytesRecv = recv(sock, buffer, bytesToGet, 0);
+                bytesToGet = bytesToGet - bytesRecv;
+                int i = 0;
+                for (i = 0; i < bytesRecv; i++)
+                {
+                    returnMsg[fileIndex++] = buffer[i];
+                }
+                free(buffer);
             }
 //            printf("Received num bytes - %d\n\n", bytesRecv);
             close(sock);
 
             char *localFileName;
             localFileName = basename(urlValue);
-            stringToFile(returnMsg, localFileName, bytesRecv);
+            stringToFile(returnMsg, localFileName, sizeBuffer);
 
             printf("fetch file successfully\n");
-            printf("result file: %s\n",localFileName);
+            printf("result file: %s\n", localFileName);
         }
     }
 
@@ -476,15 +480,15 @@ int main(int argc, char **argv)
                     gotCArg = 1;
                     break;
                 default:
-                    fprintf(stderr, "Unknown command line option: -%c\n",
-                            optopt);
+                    fprintf(stderr, "Unknown command line option: -%c\n", optopt);
                     printUsage();
                     exit(1);
             }
         }
         for (i = optind; i < argc; i++)
             strcpy(urlValue, argv[i]);
-    } else
+    }
+    else
     {
         fprintf(stderr, "Command line argument '<URL>' is required.\n");
         printUsage();
@@ -503,18 +507,17 @@ int main(int argc, char **argv)
     FILE *fd = fopen(chainfileName, "r");
     if (fd == NULL)
     {
-        fprintf(stderr, "Error opening chainfile specified ('%s').\n",
-                chainfileName);
+        fprintf(stderr, "Error opening chainfile specified ('%s').\n", chainfileName);
         exit(1);
     }
     // check file for errors
     if ((i = sanityCheckFile(chainfileName)) != 0)
     {
-        fprintf(stderr,
-                "Error in line number %d of Chainfile specified ('%s').\n", i,
-                chainfileName);
+        fprintf(stderr, "Error in line number %d of Chainfile specified ('%s').\n", i, chainfileName);
         exit(1);
     }
+
+    printf("Loading chainfile from url: %s\n", chainfileName);
     // populate chaindata struct from file
     if (readChainFile(fd, &cd))
     {
@@ -525,9 +528,9 @@ int main(int argc, char **argv)
     fclose(fd);
 
     dbgPrintChainData(&cd);
-    printf("%s\n",urlValue);
+    printf("%s\n", urlValue);
 
-    sendURLandChainData (&cd, urlValue);
+    sendURLandChainData(&cd, urlValue);
 
     return 0;
 }

@@ -58,6 +58,7 @@ int stringToFile(char *s, char *fileName, int fileSize)
     {
         DieWithError("File Open error.");
     }
+//    printf("Writing...%d bytes\n", fileSize);
     int i = 0;
     for (i; i < fileSize; i++)
     {
@@ -253,6 +254,7 @@ char* sendToNextSS(struct chainData *cData, char *urlValue, int *fileSize)
 
     /* remove myself from list of chaindata's array of chainlinks */
     removeMeFromChainlinks(cData);
+    dbgPrintChainData(cData);
 
     /* get random SS to send to */
     getRandomSS(cData, &ssAddr, &ssPort, &linkNumChosen);
@@ -518,30 +520,33 @@ void startServer(char* cPortNumber)
 
 //                        printf("%s - NumLinks remaining in chaindata is: %u\n", ssId, chaindata->numLinks);
 
+                        printf("SS %s, %d:\n", hostName, portNumber);
+                        printf("receiving request: %s\n", urlValue);
                         if (chaindata->numLinks > 1)
                         { // Need to forward to other SS's
+//                            char *ssFilename = (char*) malloc(100);
+//                            sprintf(ssFilename, "SSFile_%d", counter++);
+                            returnMsg = sendToNextSS(chaindata, urlValue, &fileSize);
+//                            stringToFile(returnMsg, ssFilename, fileSize);
+//                            strncpy(returnMsg, sendToNextSS(chaindata, urlValue, &fileSize), fileSize);
 
-                            printf("receiving request\n");
-                            dbgPrintChainData(chaindata);
-
-//                            fprintf(stdout, "Receiving request\n");
-                            strncpy(returnMsg, sendToNextSS(chaindata, urlValue, &fileSize), fileSize);
-//                            printf("Done stepping\n\n");
-
-                            printf("fetching urlValue...\n");
+                            printf("fetching %s...\n", urlValue);
                             printf("relay successfully...\n");
+                            printf("Goodbye!\n");
 
                         }
                         else if (chaindata->numLinks == 1)
                         { // Last SS, time to retrieve the document
-
+                            printf("Chainlist is empty\n");
                             printf("This is the last SS, wget %s\n",urlValue);
                             goGetFile(urlValue);
 
                             fileToString(basename(urlValue), returnMsg, &fileSize);
                             deleteFile(basename(urlValue));
                             printf("relay file...\n");
+                            printf("File received\n");
                             printf("successful\n");
+                            printf("Goodbye!\n");
                         }
 
                         // send filesize as a 4 byte header
