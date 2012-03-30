@@ -1,8 +1,7 @@
-/*
+ /*
  CS457DL Project 2
  Steve Watts
  Jason Kim
- Pete Winterscheidt
  */
 
 /* This is the ss program portion of the CS457DL Lab/Programming Assignnment 2 */
@@ -89,7 +88,7 @@ int fileToString(char *fileName, char *s, int *fileSize)
     char buffer[MAXFILESIZE];
     infile.read (buffer,*fileSize);
     infile.close();
-    printf("Loaded Size: %ld\n\n", *fileSize);
+//    printf("Loaded Size: %ld\n\n", *fileSize);
 
     memcpy (s, buffer, *fileSize);
 
@@ -257,6 +256,8 @@ char* sendToNextSS(struct chainData *cData, char *urlValue, int *fileSize)
 
     /* get random SS to send to */
     getRandomSS(cData, &ssAddr, &ssPort, &linkNumChosen);
+    printf("the next SS %s,%d\n",ssAddr,ssPort);
+    printf("waiting...\n");
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_INET;
@@ -302,8 +303,8 @@ char* sendToNextSS(struct chainData *cData, char *urlValue, int *fileSize)
     // convert chaindata and url to char array that we can send
     chainDataAndURLToString(cData, urlValue, &buf);
 
-    fprintf(stdout, "URL and Chainlist are:\n*********\n%s\n*********\n", buf);
-    fprintf(stdout, "The next SS is %s, %d\nWaiting...\n", ssAddr, ssPort);
+//    fprintf(stdout, "URL and Chainlist are:\n*********\n%s\n*********\n", buf);
+//    fprintf(stdout, "The next SS is %s, %d\nWaiting...\n", ssAddr, ssPort);
 
     // send message
     if (send(sockfd, buf, strlen(buf), 0) == -1)
@@ -313,7 +314,7 @@ char* sendToNextSS(struct chainData *cData, char *urlValue, int *fileSize)
     }
     else
     {
-        printf("Sent Chain Data with %u links to %s:%s via TCP\n", cData->numLinks, ssAddr, portNo);
+//        printf("Sent Chain Data with %u links to %s:%s via TCP\n", cData->numLinks, ssAddr, portNo);
     }
     free(buf);
 
@@ -344,39 +345,31 @@ char* sendToNextSS(struct chainData *cData, char *urlValue, int *fileSize)
             sizeBuffer = ntohl(sizeBuffer);
             *fileSize = sizeBuffer;
 
-            printf("GOT MESSAGE SIZE: %d\n\n", sizeBuffer);
+//            printf("GOT MESSAGE SIZE: %d\n\n", sizeBuffer);
             totalMsg = (char*) malloc(sizeBuffer);
             int i = 0;
             int msgIndex = 0;
             while (bytesRecv < sizeBuffer)
             {
                 buffer = (char*) malloc(sizeBuffer - bytesRecv);
-                printf("Bytes begin recv: %d\n\n", bytesRecv);
+//                printf("Bytes begin recv: %d\n\n", bytesRecv);
                 recvRV = recv(sockfd, buffer, (sizeBuffer - bytesRecv), 0);
                 if (recvRV == -1) { perror("Error in recv()\n"); exit(7); }
                 else
                 {
                     bytesRecv = bytesRecv + recvRV;
                 }
-                printf("Bytes recv: %d\n\n", bytesRecv);
+//                printf("Bytes recv: %d\n\n", bytesRecv);
                 for (i = 0; i < recvRV; i++)
                 {
                     totalMsg[msgIndex++] = buffer[i];
                 }
-                printf("Cat done\n");
+//                printf("Cat done\n");
             }
-            printf("Received num bytes - %d\n\n", bytesRecv);
+//            printf("Received num bytes - %d\n\n", bytesRecv);
             close(sockfd);
-            printf("Fetching %s\nRelay successfully completed!\n", urlValue);
+//            printf("Fetching %s\nRelay successfully completed!\n", urlValue);
 
-            //XXX: REMOVE!
-//            char servName[80];
-//            sprintf(servName, "SKIPTestEarly-%d-%d.pdf", portNumber, counter++);
-//            ofstream outfile (servName, ofstream::binary);
-//            printf("Writing skip output file");
-//            // write to outfile
-//            outfile.write (totalMsg, *fileSize);
-//            outfile.close();
         }
     }
 
@@ -460,7 +453,7 @@ void startServer(char* cPortNumber)
 
     // keep track of the biggest file descriptor
     fdmax = listener; // so far, it's this one
-    printf("Server started successfully on port %s via TCP\n", cPortNumber);
+//    printf("Server started successfully on port %s via TCP\n", cPortNumber);
 
     // main loop
     for (;;)
@@ -496,9 +489,9 @@ void startServer(char* cPortNumber)
                         { // keep track of the max
                             fdmax = newfd;
                         }
-                        printf("New connection from %s on socket %d\n",
-                                inet_ntop(remoteaddr.ss_family, get_in_addr((struct sockaddr*) &remoteaddr), remoteIP,
-                                        INET6_ADDRSTRLEN), newfd);
+//                        printf("New connection from %s on socket %d\n",
+//                                inet_ntop(remoteaddr.ss_family, get_in_addr((struct sockaddr*) &remoteaddr), remoteIP,
+//                                        INET6_ADDRSTRLEN), newfd);
                     }
                 }
                 else // Data has returned on the socket meant for data transfer
@@ -511,7 +504,7 @@ void startServer(char* cPortNumber)
                       // got error or connection closed by client
                         if (nbytes == 0) {
                             // connection closed
-                            printf("Server: socket %d hung up. (Cxn closed)\n", i);
+//                            printf("Server: socket %d hung up. (Cxn closed)\n", i);
                         } else {
                             perror("Server Error: Error in recv");
                             exit(6); }
@@ -523,45 +516,39 @@ void startServer(char* cPortNumber)
                         streamToURLAndChainData(buf, urlValue, chaindata);
                         returnMsg = (char*) malloc(MAXFILESIZE+20);
 
-                        printf("%s - NumLinks remaining in chaindata is: %u\n", ssId, chaindata->numLinks);
+//                        printf("%s - NumLinks remaining in chaindata is: %u\n", ssId, chaindata->numLinks);
 
                         if (chaindata->numLinks > 1)
                         { // Need to forward to other SS's
-                            fprintf(stdout, "Receiving request\n");
-                            strncpy(returnMsg, sendToNextSS(chaindata, urlValue, &fileSize), fileSize);
-                            printf("Done stepping\n\n");
 
-                            //XXX: REMOVE!
-//                            char servName[80];
-//                            sprintf(servName, "SKIPTest-%d-%d.pdf", portNumber, counter);
-//                            printf("Done naming\n\n");
-//                            ofstream outfile (servName, ofstream::binary);
-//                            // write to outfile
-//                            outfile.write (returnMsg, fileSize);
-//                            outfile.close();
+                            printf("receiving request\n");
+                            dbgPrintChainData(chaindata);
+
+//                            fprintf(stdout, "Receiving request\n");
+                            strncpy(returnMsg, sendToNextSS(chaindata, urlValue, &fileSize), fileSize);
+//                            printf("Done stepping\n\n");
+
+                            printf("fetching urlValue...\n");
+                            printf("relay successfully...\n");
+
                         }
                         else if (chaindata->numLinks == 1)
                         { // Last SS, time to retrieve the document
+
+                            printf("This is the last SS, wget %s\n",urlValue);
                             goGetFile(urlValue);
 
                             fileToString(basename(urlValue), returnMsg, &fileSize);
                             deleteFile(basename(urlValue));
-                            // sendStringToParentThread(fileContents);
-
-                            //XXX: REMOVE!
-//                            char servName[80];
-//                            sprintf(servName, "SKIPTestSource-%d-%d.pdf", portNumber, counter);
-//                            ofstream outfile(servName, ofstream::binary);
-//                            // write to outfile
-//                            outfile.write (returnMsg, fileSize);
-//                            outfile.close();
+                            printf("relay file...\n");
+                            printf("successful\n");
                         }
 
                         // send filesize as a 4 byte header
                         fileSizeMsg = htonl(fileSize);
                         if (send(i, &fileSizeMsg, 4, 0) == -1) { perror("Error in send()\n"); exit(7); }
 
-                        printf("Sending payload (filesize is %d)\n\n", fileSize);
+//                        printf("Sending payload (filesize is %d)\n\n", fileSize);
 
                         // send payload; keep send()ing until it is complete
                         bytesSent = 0;
@@ -570,7 +557,7 @@ void startServer(char* cPortNumber)
                             sendBuffer = (char*) malloc(fileSize-bytesSent);
                             memcpy(sendBuffer, returnMsg+bytesSent, fileSize-bytesSent);
                             bytesSent = bytesSent + send(i, sendBuffer, (fileSize-bytesSent), 0);
-                            printf("Sent back %d bytes\n\n", bytesSent);
+//                            printf("Sent back %d bytes\n\n", bytesSent);
                         }
                         if (bytesSent == -1) { // sending message
                             perror("Error in send()\n");
@@ -579,7 +566,7 @@ void startServer(char* cPortNumber)
                         else
                         {
                             free(returnMsg);
-                            printf("DBG: Bytes sent - %d\n\n", bytesSent);
+//                            printf("DBG: Bytes sent - %d\n\n", bytesSent);
                             FD_CLR(i, &master); // remove from master set
                         }
                     }
@@ -670,10 +657,10 @@ int main(int argc, char **argv)
     }
 
     /* start the actual server portion of the task */
-    printf("\n\nStepping SsStone Program\nhost name: %s port: %d\n\n", hostName, portNumber);
-    strcpy(ssId, hostName);
-    strcat(ssId, ":");
-    strcat(ssId, cPortNumber);
+//    printf("\n\nStepping SsStone Program\nhost name: %s port: %d\n\n", hostName, portNumber);
+//    strcpy(ssId, hostName);
+//    strcat(ssId, ":");
+//    strcat(ssId, cPortNumber);
     //    printf("calling startServer\n");
     startServer(cPortNumber);
 
