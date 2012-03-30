@@ -20,13 +20,14 @@ void
 dbgPrintChainData (struct chainData *cd) 
 {
     int i;
-    printf("<debug>\n<debug>\n");
-    printf("<debug>size = %d\n",sizeof(struct chainData));
-    printf("<debug>%d links\n",cd->numLinks);
+    //    printf("<debug>\n<debug>\n");
+    //    printf("<debug>size = %d\n",sizeof(struct chainData));
+    //    printf("<debug>%d links\n",cd->numLinks);
+    printf("Chainlist is\n");
     for (i = 0; i < cd->numLinks; i++) {
-      printf("<debug>%s,%d\n",cd->links[i].SSaddr,cd->links[i].SSport);
+      printf("%s,%d\n",cd->links[i].SSaddr,cd->links[i].SSport);
     }
-    printf("<debug>\n<debug>\n");
+    //    printf("<debug>\n<debug>\n");
 }
 
 void
@@ -45,3 +46,4 @@ memDump (char *buf, int num) {
   fprintf(fd,"<debug>\n");
   fclose(fd);
 }
+
