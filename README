@@ -3,4 +3,7 @@ Jason Kim : jkimttv@gmail.com : 818-288-4710
 
 SS and AWGET
 ================
-NOTE: Professor Wakefield agreed that we can exclude the multi-threading capability for our project because of the participation troubles we've faced.  Everything else should be fully functional.  
+NOTE: Professor Wakefield agreed that we can exclude the multi-threading capability for our project because of the participation troubles we've faced.  Everything else should be fully functional. 
+
+BUGS:
+SS fails to remove hosts from the chainfile if they do not match the host's hostname ie using localhost instead of a hostname

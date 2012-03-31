@@ -19,7 +19,7 @@ DieWithError (char *errorMessage)
 void 
 dbgPrintChainData (struct chainData *cd) 
 {
-    int i;
+    unsigned int i;
     //    printf("<debug>\n<debug>\n");
     //    printf("<debug>size = %d\n",sizeof(struct chainData));
     //    printf("<debug>%d links\n",cd->numLinks);
@@ -32,18 +32,17 @@ dbgPrintChainData (struct chainData *cd)
 
 void
 memDump (char *buf, int num) {
-  int i,j;
+  int i;
 
   FILE *fd = fopen("/tmp/swatts_debug.txt","w");
 
   fprintf(fd,"<debug>\n");
   for(i=0; i<num; i++) {
 
-    if ((i % 4) == 0) fprintf(fd, "\n<%X>",&buf[i] - &buf[0]);
+    if ((i % 4) == 0) fprintf(fd, "\n<%lX>",&buf[i] - &buf[0]);
     fprintf(fd, "%x...%c...",buf[i],buf[i]);
 
   }
   fprintf(fd,"<debug>\n");
   fclose(fd);
 }
-

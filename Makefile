@@ -1,6 +1,6 @@
 OBJECTS = awget.o ss.o
 OUTPUT = awget ss
-FLAGS = -ggdb -Wall
+FLAGS = -ggdb -Wall -lpthread -pthread
 all: $(OBJECTS)
 	g++ ${FLAGS} ss.o -o ss
 	g++ ${FLAGS} awget.o -o awget
