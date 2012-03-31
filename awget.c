@@ -40,7 +40,7 @@ int printUsage()
     return 0;
 }
 
-int stringToFile(char *s, char *fileName, int fileSize)
+void stringToFile(char *s, char *fileName, int fileSize)
 {
     FILE *fd = fopen(fileName, "w");
     if (fd == NULL)
@@ -65,9 +65,9 @@ int stringToFile(char *s, char *fileName, int fileSize)
 //    outfile.close();
 }
 
-int fileToString(char *fileName, char *s, int *fileSize)
+void fileToString(char *fileName, char *s, int *fileSize)
 {
-    long size;
+    // long size;
     ifstream
     infile (fileName, ifstream::binary);
     // get size of file

@@ -3,7 +3,7 @@
    Steve Watts
    Jason Kim
    Pete Winterscheidt
-*/
+   */
 
 /* This is the ss program portion of the CS457DL Lab/Programming Assignnment 2 */
 
@@ -34,10 +34,14 @@
 #define MAXFILESIZE 550544      // max number of bytes we can get retrieve from URL
 #define NUM_THREADS 10          // max number of threads
 
+struct threadData {
+  int fd;
+  char urlValue[255];
+};
+struct threadData threadDataArray[NUM_THREADS];
 int portNumber;                 // port number for connection
 char hostName[1024];
 struct chainData cdPacked, cd;
-char urlValue[255];
 char ssId[255];
 int counter = 0;
 
@@ -191,15 +195,15 @@ void removeMeFromChainlinks(struct chainData *cData)
 /***
  * Convert chaindata and url to a string format, cdString, for transport
  */
-void chainDataAndURLToString(struct chainData *cd, char *urlValue, char **cdString)
+void chainDataAndURLToString(struct chainData *cd, char *url, char **cdString)
 {
   unsigned int i;
   int thisSize = 0;
   char thisLine[255];
 
-  thisSize = 6 * sizeof(char) + strlen(urlValue) * sizeof(char);
+  thisSize = 6 * sizeof(char) + strlen(url) * sizeof(char);
   *cdString = (char*) malloc(thisSize);
-  strcpy(*cdString, urlValue);
+  strcpy(*cdString, url);
   strcat(*cdString, "\n");
   sprintf(thisLine, "%d\n", cd->numLinks);
   strcat(*cdString, thisLine);
@@ -217,7 +221,7 @@ void chainDataAndURLToString(struct chainData *cd, char *urlValue, char **cdStri
 /***
  * Takes fileStream and populates urlValue and chainData cd
  */
-void streamToURLAndChainData(char *fileStream, char *urlValue, struct chainData *cd)
+void streamToURLAndChainData(char *fileStream, char *url, struct chainData *cd)
 {
   char *token = NULL;
   //char thisInt[6];
@@ -225,7 +229,7 @@ void streamToURLAndChainData(char *fileStream, char *urlValue, struct chainData 
   char *j;
 
   token = strtok(fileStream, "\n");
-  strcpy(urlValue, token);
+  strcpy(url, token);
   token = strtok(NULL, "\n");
   cd->numLinks = atoi(token);
   for (i = 0; i < cd->numLinks; i++)
@@ -239,7 +243,7 @@ void streamToURLAndChainData(char *fileStream, char *urlValue, struct chainData 
   }
 }
 
-char* sendToNextSS(struct chainData *cData, char *urlValue, int *fileSize)
+char* sendToNextSS(struct chainData *cData, char *url, int *fileSize)
 {
   struct addrinfo hints;
   struct addrinfo *servinfo;
@@ -311,7 +315,7 @@ char* sendToNextSS(struct chainData *cData, char *urlValue, int *fileSize)
   freeaddrinfo(servinfo); // all done with this structure
 
   // convert chaindata and url to char array that we can send
-  chainDataAndURLToString(cData, urlValue, &buf);
+  chainDataAndURLToString(cData, url, &buf);
 
   //    fprintf(stdout, "URL and Chainlist are:\n*********\n%s\n*********\n", buf);
   //    fprintf(stdout, "The next SS is %s, %d\nWaiting...\n", ssAddr, ssPort);
@@ -351,7 +355,10 @@ char* sendToNextSS(struct chainData *cData, char *urlValue, int *fileSize)
     if (FD_ISSET(sockfd, &read_fds))
     {
       // receive the header - file size
-      if (recv(sockfd, &sizeBuffer, 4, 0) == -1) { perror("Error in recv()\n"); exit(7); }
+      if (recv(sockfd, &sizeBuffer, 4, 0) == -1) { 
+        perror("Error in recv()\n"); 
+        exit(7); 
+      }
       sizeBuffer = ntohl(sizeBuffer);
       *fileSize = sizeBuffer;
 
@@ -364,9 +371,10 @@ char* sendToNextSS(struct chainData *cData, char *urlValue, int *fileSize)
         buffer = (char*) malloc(sizeBuffer - bytesRecv);
         //                printf("Bytes begin recv: %d\n\n", bytesRecv);
         recvRV = recv(sockfd, buffer, (sizeBuffer - bytesRecv), 0);
-        if (recvRV == -1) { perror("Error in recv()\n"); exit(7); }
-        else
-        {
+        if (recvRV == -1) { 
+          perror("Error in recv()\n"); 
+          exit(7); 
+        } else {
           bytesRecv = bytesRecv + recvRV;
         }
         //                printf("Bytes recv: %d\n\n", bytesRecv);
@@ -378,7 +386,7 @@ char* sendToNextSS(struct chainData *cData, char *urlValue, int *fileSize)
       }
       //            printf("Received num bytes - %d\n\n", bytesRecv);
       close(sockfd);
-      //            printf("Fetching %s\nRelay successfully completed!\n", urlValue);
+      //            printf("Fetching %s\nRelay successfully completed!\n", url);
 
     }
   }
@@ -386,8 +394,9 @@ char* sendToNextSS(struct chainData *cData, char *urlValue, int *fileSize)
   return totalMsg;
 }
 
+//FIXME There is a lot of locking going on in this function as I have not had the time to test if functions are thread safe
 void *handleData(void * arg){
-  long i = (long)arg;
+  struct threadData *td = (struct threadData*)arg;
   struct chainData *chaindata = new chainData();
   int nbytes;
   int recvMsgSize = 8192;
@@ -399,51 +408,54 @@ void *handleData(void * arg){
   char buf[8192] = {};
 
   // handle data from a client
-  if ((nbytes = recv(i, buf, recvMsgSize, 0)) <= 0)
-  { // ERROR STATE
-    // got error or connection closed by client
+  if ((nbytes = recv(td->fd, buf, recvMsgSize, 0)) <= 0)
+  { 
+    // ERROR STATE - either got an error or connection closed by client
     if (nbytes == 0) {
       // connection closed
-      //                            printf("Server: socket %d hung up. (Cxn closed)\n", i);
+      // printf("Server: socket %d hung up. (Cxn closed)\n", td->fd);
     } else {
       perror("Server Error: Error in recv");
-      exit(6); 
+      //exit(6); 
+      pthread_mutex_unlock (&fdmutex);
+      pthread_exit((void*) 6);
     }
-    close(i); // bye!
+    close(td->fd); // bye!
+  } else { 
+    // Received data properly - HANDLE DATA HERE
     pthread_mutex_lock (&fdmutex);
-    FD_CLR(i, &master); // remove from master set
+    streamToURLAndChainData(buf, td->urlValue, chaindata);
     pthread_mutex_unlock (&fdmutex);
-  }
-  else
-  { // Received data properly - HANDLE DATA HERE
-    streamToURLAndChainData(buf, urlValue, chaindata);
     returnMsg = (char*) malloc(MAXFILESIZE+20);
 
     //                        printf("%s - NumLinks remaining in chaindata is: %u\n", ssId, chaindata->numLinks);
 
     printf("SS %s, %d:\n", hostName, portNumber);
-    printf("receiving request: %s\n", urlValue);
+    printf("receiving request: %s\n", td->urlValue);
     if (chaindata->numLinks > 1)
     { // Need to forward to other SS's
       //                            char *ssFilename = (char*) malloc(100);
       //                            sprintf(ssFilename, "SSFile_%d", counter++);
-      returnMsg = sendToNextSS(chaindata, urlValue, &fileSize);
+      pthread_mutex_lock (&fdmutex);
+      returnMsg = sendToNextSS(chaindata, td->urlValue, &fileSize);
+      pthread_mutex_unlock (&fdmutex);
       //                            stringToFile(returnMsg, ssFilename, fileSize);
-      //                            strncpy(returnMsg, sendToNextSS(chaindata, urlValue, &fileSize), fileSize);
+      //                            strncpy(returnMsg, sendToNextSS(chaindata, td->urlValue, &fileSize), fileSize);
 
-      printf("fetching %s...\n", urlValue);
+      printf("fetching %s...\n", td->urlValue);
       printf("relay successfully...\n");
       printf("Goodbye!\n");
-
     }
     else if (chaindata->numLinks == 1)
     { // Last SS, time to retrieve the document
+      pthread_mutex_lock (&fdmutex);
       printf("Chainlist is empty\n");
-      printf("This is the last SS, wget %s\n",urlValue);
-      goGetFile(urlValue);
+      printf("This is the last SS, wget %s\n",td->urlValue);
+      goGetFile(td->urlValue);
 
-      fileToString(basename(urlValue), returnMsg, &fileSize);
-      deleteFile(basename(urlValue));
+      fileToString(basename(td->urlValue), returnMsg, &fileSize);
+      deleteFile(basename(td->urlValue));
+      pthread_mutex_unlock (&fdmutex);
       printf("relay file...\n");
       printf("File received\n");
       printf("successful\n");
@@ -452,9 +464,14 @@ void *handleData(void * arg){
 
     // send filesize as a 4 byte header
     fileSizeMsg = htonl(fileSize);
-    if (send(i, &fileSizeMsg, 4, 0) == -1) { perror("Error in send()\n"); exit(7); }
+    if (send(td->fd, &fileSizeMsg, 4, 0) == -1) {
+      perror("Error in send()\n");
+      pthread_mutex_unlock (&fdmutex);
+      pthread_exit((void*) 7);
+      //exit(7);
+    }
 
-    //                        printf("Sending payload (filesize is %d)\n\n", fileSize);
+    // printf("Sending payload (filesize is %d)\n\n", fileSize);
 
     // send payload; keep send()ing until it is complete
     bytesSent = 0;
@@ -462,26 +479,27 @@ void *handleData(void * arg){
     {
       sendBuffer = (char*) malloc(fileSize-bytesSent);
       memcpy(sendBuffer, returnMsg+bytesSent, fileSize-bytesSent);
-      bytesSent = bytesSent + send(i, sendBuffer, (fileSize-bytesSent), 0);
+      bytesSent = bytesSent + send(td->fd, sendBuffer, (fileSize-bytesSent), 0);
       //                            printf("Sent back %d bytes\n\n", bytesSent);
     }
     if (bytesSent == -1) { // sending message
       perror("Error in send()\n");
-      exit(7);
+      pthread_mutex_unlock (&fdmutex);
+      pthread_exit((void*) 7);
+      //exit(7);
     }
     else
     {
       free(returnMsg);
-      //                            printf("DBG: Bytes sent - %d\n\n", bytesSent);
-      pthread_mutex_lock (&fdmutex);
-      FD_CLR(i, &master); // remove from master set
-      pthread_mutex_unlock (&fdmutex);
-    }
+      // printf("DBG: Bytes sent - %d\n\n", bytesSent);
+      }
   }
-  // just to be safe and ensure no hanging mutex
+  // we are finished with this trasfer we can add the socket back to the selector set
+  pthread_mutex_lock (&fdmutex);
+  FD_SET(td->fd, &master); // remove from master set
   pthread_mutex_unlock (&fdmutex);
   pthread_exit((void*) 0);
-}
+  }
 
 void startServer(char* cPortNumber)
 {
@@ -504,6 +522,7 @@ void startServer(char* cPortNumber)
   // Start server
   FD_ZERO(&master); // clear the master and temp sets
   FD_ZERO(&read_fds);
+
   // get us a socket and bind it
   memset(&hints, 0, sizeof hints);
   hints.ai_family = AF_INET; // IPv4
@@ -554,6 +573,7 @@ void startServer(char* cPortNumber)
   //    printf("Server started successfully on port %s via TCP\n", cPortNumber);
 
   // master / the file descriptor set needs to be protected from here on
+  // threads will be adding themselves back into the selector set at any time
   // init the mutex
   pthread_mutex_init(&fdmutex, NULL);
 
@@ -565,22 +585,21 @@ void startServer(char* cPortNumber)
     pthread_mutex_unlock (&fdmutex);
     if (select(fdmax + 1, &read_fds, NULL, NULL, NULL) == -1)
     {
-      fprintf(stderr, "Server Error: Error while checking for data to be recv()");
+      fprintf(stderr, "Server Error: Error while checking for data to be recv()\n");
       exit(4);
     }
 
-    // run through the existing connections looking for data to read
+    // run through the existing connections looking for file descriptors ready to read
     for (long i = 0; i <= fdmax; i++)
     {
       if (FD_ISSET(i, &read_fds))
-      { // we got one!!
-
+      { 
+        // file descriptor is ready to be read
         if (i == listener)
         {
           // handle new connections
           addrlen = sizeof remoteaddr;
           newfd = accept(listener, (struct sockaddr *) &remoteaddr, &addrlen);
-
           if (newfd == -1)
           {
             perror("Server Error: While creating new socket for accept()");
@@ -589,27 +608,33 @@ void startServer(char* cPortNumber)
           else
           {
             pthread_mutex_lock (&fdmutex);
-            FD_SET(newfd, &master); // add to master set
+            FD_SET(newfd, &master); // add file descriptor to master set
             pthread_mutex_unlock (&fdmutex);
             if (newfd > fdmax)
-            { // keep track of the max
+            { 
+              // keep track of the max
               fdmax = newfd;
             }
-            //                        printf("New connection from %s on socket %d\n",
-            //                                inet_ntop(remoteaddr.ss_family, get_in_addr((struct sockaddr*) &remoteaddr), remoteIP,
-            //                                        INET6_ADDRSTRLEN), newfd);
+            // printf("New connection from %s on socket %d\n",
+            // inet_ntop(remoteaddr.ss_family, get_in_addr((struct sockaddr*) &remoteaddr), remoteIP,
+            // INET6_ADDRSTRLEN), newfd);
           }
         }
         else // Data has returned on the socket meant for data transfer
         {
-          pthread_t *threadID;
-          int rc = pthread_create(threadID, NULL, handleData, (void *) i);
+          // Spawn a thread and remove the file descriptor - the thread will add it back once it is done.
+          pthread_t threadID = 0;
+          struct threadData td;
+          td.fd=i;
+          int rc = pthread_create(&threadID, NULL, handleData, (void *) &td);
           if (rc){
             printf("ERROR; return code from pthread_create() is %d\n", rc);
             exit(-1);
           }
+          pthread_mutex_lock (&fdmutex);
+          FD_CLR(i, &master); // remove from master set so we do not get repeat threads
+          pthread_mutex_unlock (&fdmutex);
           printf("Created a new thread with id: %ld\n", threadID);
-          //handleData(i, master);
         } // END handle data from client
       } // END got new incoming connection
     } // END looping through file descriptors
