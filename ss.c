@@ -99,7 +99,7 @@ void fileToString(char *fileName, char *s, int *fileSize)
   char buffer[MAXFILESIZE];
   infile.read (buffer,*fileSize);
   infile.close();
-  //    printf("Loaded Size: %ld\n\n", *fileSize);
+  printf("Loaded Size: %d\n\n", *fileSize);
 
   memcpy (s, buffer, *fileSize);
 
@@ -126,7 +126,9 @@ void goGetFile(char *url)
   char cmdLine[255] = "";
   strcat(cmdLine,"wget ");
   strcat(cmdLine,url);
-  strcat(cmdLine," --no-check-certificate");
+  strcat(cmdLine," -O ");
+  strcat(cmdLine,url);
+  //strcat(cmdLine," --no-check-certificate");
 
   if (system(cmdLine) != 0)
   {
